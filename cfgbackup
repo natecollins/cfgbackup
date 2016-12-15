@@ -1,8 +1,38 @@
 #!/bin/bash
 
-# include files
-. email.sh
-. logging.sh
-. rotation.sh
+VERSION=0.0.1
 
+# include files
+. email.bash
+. logging.bash
+. rotation.bash
+. parseconf.bash
+
+runhelp() {
+    echo "Usage: cfgbackup [config-file] [command]"
+    echo "    Creates backups of a directory given a config file specifying"
+    echo "how the backup should be run. Each backup job uses a separate config"
+    echo "file. See provided example.conf file as a template to use for"
+    echo "setting up a config file. Scheduling of backups should be handled"
+    echo "by cron."
+    echo ""
+    echo "COMMANDS:"
+    echo "  check   - Perform a verification of the config file and check"
+    echo "            that access to the source and target directories exist."
+    echo "  status  - Print out the current status of any current job for the"
+    echo "            given config. If no job is running, reports on the last"
+    echo "            job that ran."
+    echo "  list    - List information about backups that have been created"
+    echo "            using the given config."
+    echo "  run     - Run the backup according to the config file provided."
+    echo ""
+    echo "cfgbackup v${VERSION}"
+    exit 0
+}
+
+if [[ -z "$1" || $1 == "-h" || $1 == "--help" || $1 == "help" || $1 == "--version" ]]; then
+    runhelp
+fi
+
+# Parse Config file
 
