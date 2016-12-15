@@ -1,4 +1,5 @@
 #!/bin/bash
+#TODO copyright
 
 VERSION=0.0.1
 
@@ -7,7 +8,9 @@ VERSION=0.0.1
 . logging.bash
 . rotation.bash
 . parseconf.bash
+. checkjob.bash
 
+# Command help
 runhelp() {
     echo "Usage: cfgbackup [config-file] [command]"
     echo "    Creates backups of a directory given a config file specifying"
@@ -35,4 +38,12 @@ if [[ -z "$1" || $1 == "-h" || $1 == "--help" || $1 == "help" || $1 == "--versio
 fi
 
 # Parse Config file
+parse_config $1
+if [[ $? == 1 ]]; then
+    echo "Could not parse config file: $1"
+    for $PARSE_MSG in "${PARSE_ERRORS}"; do
+        echo $PARSE_MSG
+    done
+    exit 0
+fi
 
