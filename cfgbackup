@@ -4,6 +4,7 @@
 VERSION=0.0.1
 
 # include files
+. misc.bash
 . email.bash
 . logging.bash
 . rotation.bash
@@ -40,10 +41,34 @@ fi
 # Parse Config file
 parse_config $1
 if [[ $? == 1 ]]; then
-    echo "Could not parse config file: $1"
+    echo "ERROR: Could not parse config file: $1"
     for $PARSE_MSG in "${PARSE_ERRORS}"; do
         echo $PARSE_MSG
     done
-    exit 0
+    exit 1
 fi
+
+# Verify command
+$VALID_COMMANDS=(check status list run)
+array_contains $VALID_COMMANDS $2
+if [[ $? != 0 ]]; then
+    echo "ERROR: Invalid command '$2' given."
+    exit 1
+fi
+$COMMAND=$2
+
+# Run commands
+if [[ $COMMAND == "check" ]]; then
+    command_check
+fi
+if [[ $COMMAND == "run" ]]; then
+    #TODO command_run
+fi
+if [[ $COMMAND == "status" ]]; then
+    #TODO command_status
+fi
+if [[ $COMMAND == "list" ]]; then
+    #TODO command_list
+fi
+
 
