@@ -3,6 +3,20 @@
 ###############################
 
 ###############################
+## Check if source directory is remote
+## Return 0 if remote; 1 otherwise
+source_is_remote() {
+    substr_index "${CONFIG[SOURCE_DIR]}" ":"
+    local COLON_IDX=$?
+    substr_index "${CONFIG[SOURCE_DIR]}" "/"
+    local SLASH_IDX=$?
+    if [[ $COLON_IDX -ge "0" && $COLON_IDX -lt $SLASH_IDX ]]; then
+        return 0
+    fi
+    return 1
+}
+
+###############################
 ## Run checks on config and access
 command_check() {
     # Test log access
@@ -13,13 +27,47 @@ command_check() {
     fi
 
     # Test source access
-    #TODO
+    source_is_remote
+    if [[ $? == 0 ]]; then
+        substr_index "${CONFIG[SOURCE_DIR]}" ":"
+        local COLON_IDX=$?
+        local SSH_CONNECT=${CONFIG[SOURCE_DIR]:0:$COLON_IDX}
+        local SSH_SOURCE=${CONFIG[SOURCE_DIR]:1+$COLON_IDX}
+        # Check SSH connection
+        ssh -o BatchMode=yes $SSH_CONNECT exit 0
+        if [[ $? != 0 ]]; then
+            echo "ERROR: Could not connect via SSH to ${SSH_CONNECT}"
+            exit 1
+        fi
+
+        # Check remote directory
+        ssh -o BatchMode=yes $SSH_CONNECT [[ ! -d $SSH_SOURCE || ! -r $SSH_SOURCE ]]
+        if [[ $? != 0 ]]; then
+            echo "ERROR: Cannot read from remote source directory ${SSH_SOURCE}"
+            exit 1
+        fi
+    else
+        # Check local directory
+        if [[ ! -d ${CONFIG[SOURCE_DIR]} || ! -r ${CONFIG[SOURCE_DIR]} ]]; then
+            echo "ERROR: Cannot read from local source directory ${CONFIG[SOURCE_DIR]}"
+            exit 1
+        fi
+    fi
 
     # Test target access
-    #TODO
+    if [[ ! -d ${CONFIG[TARGET_DIR]} || ! -w ${CONFIG[TARGET_DIR]} ]]; then
+        echo "ERROR: Cannot write to target directory ${CONFIG[TARGET_DIR]}"
+        exit 1
+    fi
 
     # If scripts specified, test scripts are readable/execuatable
-    #TODO
+    local CHECK_SCRIPTS=(${CONFIG[PRE_SCRIPT]} ${CONFIG[SUCCESS_SCRIPT]} ${CONFIG[FAILED_SCRIPT]} ${CONFIG[FINAL_SCRIPT]})
+    for SCRPT in "${!CHECK_SCRIPTS}"; do
+        if [[ ! -f ${SCRPT} || ! -r ${SCRPT} || ! -x ${SCRPT} ]]; then
+            echo "ERROR: Script is either not accessible or not executable ${SCRPT}"
+            exit 1
+        fi
+    done
 
     echo "Config is OK."
     exit 0

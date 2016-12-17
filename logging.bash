@@ -29,8 +29,7 @@ log_init() {
 ## Create a logfile entry
 ##  $1 -> Log message entry
 log_entry() {
-    #TODO
-    return 1
+    echo "$1" >> ${CONFIG[LOG_DIR]}${CONFIG[LOG_FILENAME]}
 }
 
 
