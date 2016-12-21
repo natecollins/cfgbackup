@@ -7,9 +7,10 @@
 ##  $1 -> Array to search
 ##  $2 -> Value to find
 array_contains() {
-    local HAYSTACK="$1[@]"
+    local ARRNAME=$1[@]
+    local HAYSTACK=( ${!ARRNAME} )
     local NEEDLE="$2"
-    for VAL in "${!HAYSTACK}"; do
+    for VAL in "${HAYSTACK[@]}"; do
         if [[ $NEEDLE == $VAL ]]; then
             return 0
         fi

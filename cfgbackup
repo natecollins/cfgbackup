@@ -49,25 +49,28 @@ if [[ $? == 1 ]]; then
 fi
 
 # Verify command
-$VALID_COMMANDS=(check status list run)
-array_contains $VALID_COMMANDS $2
+VALID_COMMANDS=(check status list run)
+array_contains VALID_COMMANDS $2
 if [[ $? != 0 ]]; then
     echo "ERROR: Invalid command '$2' given."
     exit 1
 fi
-$COMMAND=$2
+COMMAND=$2
 
 # Run commands
 if [[ $COMMAND == "check" ]]; then
     command_check
 fi
 if [[ $COMMAND == "run" ]]; then
+    echo "TODO command_run"
     #TODO command_run
 fi
 if [[ $COMMAND == "status" ]]; then
+    echo "TODO command_status"
     #TODO command_status
 fi
 if [[ $COMMAND == "list" ]]; then
+    echo "TODO command_list"
     #TODO command_list
 fi
 
