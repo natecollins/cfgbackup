@@ -39,6 +39,7 @@ if [[ -z "$1" || $1 == "-h" || $1 == "--help" || $1 == "help" || $1 == "--versio
 fi
 
 # Parse Config file
+declare -A CONFIG
 parse_config $1
 if [[ $? == 1 ]]; then
     echo "ERROR: Could not parse config file: $1"

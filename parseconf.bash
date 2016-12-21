@@ -5,7 +5,6 @@
 ###############################
 ## Creates an array of config variables with default values
 default_config() {
-    declare -A CONFIG
     CONFIG[LOG_DIR]=/var/log/cfgbackup/
     CONFIG[LOG_FILENAME]=cfgbackup_DATETIME.log
     CONFIG[SOURCE_DIR]=

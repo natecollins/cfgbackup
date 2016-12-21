@@ -22,7 +22,7 @@ command_check() {
     # Test log access
     log_can_write
     if [[ $? != 0 ]]; then
-        echo "ERROR: Cannot write to log directory ${CONFIG[LOG_DIR]}"
+        echo "ERROR: Cannot write to log directory of ${CONFIG[LOG_DIR]}"
         exit 1
     fi
 
@@ -43,20 +43,20 @@ command_check() {
         # Check remote directory
         ssh -o BatchMode=yes $SSH_CONNECT [[ ! -d $SSH_SOURCE || ! -r $SSH_SOURCE ]]
         if [[ $? != 0 ]]; then
-            echo "ERROR: Cannot read from remote source directory ${SSH_SOURCE}"
+            echo "ERROR: Cannot read from remote source directory of ${SSH_SOURCE}"
             exit 1
         fi
     else
         # Check local directory
         if [[ ! -d ${CONFIG[SOURCE_DIR]} || ! -r ${CONFIG[SOURCE_DIR]} ]]; then
-            echo "ERROR: Cannot read from local source directory ${CONFIG[SOURCE_DIR]}"
+            echo "ERROR: Cannot read from local source directory of ${CONFIG[SOURCE_DIR]}"
             exit 1
         fi
     fi
 
     # Test target access
     if [[ ! -d ${CONFIG[TARGET_DIR]} || ! -w ${CONFIG[TARGET_DIR]} ]]; then
-        echo "ERROR: Cannot write to target directory ${CONFIG[TARGET_DIR]}"
+        echo "ERROR: Cannot write to target directory of ${CONFIG[TARGET_DIR]}"
         exit 1
     fi
 
