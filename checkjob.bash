@@ -62,7 +62,7 @@ command_check() {
 
     # If scripts specified, test scripts are readable/execuatable
     local CHECK_SCRIPTS=(${CONFIG[PRE_SCRIPT]} ${CONFIG[SUCCESS_SCRIPT]} ${CONFIG[FAILED_SCRIPT]} ${CONFIG[FINAL_SCRIPT]})
-    for SCRPT in "${!CHECK_SCRIPTS}"; do
+    for SCRPT in "${CHECK_SCRIPTS[@]}"; do
         if [[ ! -f ${SCRPT} || ! -r ${SCRPT} || ! -x ${SCRPT} ]]; then
             echo "ERROR: Script is either not accessible or not executable ${SCRPT}"
             exit 1

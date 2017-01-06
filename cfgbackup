@@ -13,7 +13,9 @@ VERSION=0.0.1
 
 # Command help
 runhelp() {
+    echo ""
     echo "Usage: cfgbackup [config-file] [command]"
+    echo ""
     echo "    Creates backups of a directory given a config file specifying"
     echo "how the backup should be run. Each backup job uses a separate config"
     echo "file. See provided example.conf file as a template to use for"
@@ -31,11 +33,12 @@ runhelp() {
     echo "  run     - Run the backup according to the config file provided."
     echo ""
     echo "cfgbackup v${VERSION}"
-    exit 0
+    echo ""
 }
 
 if [[ -z "$1" || $1 == "-h" || $1 == "--help" || $1 == "help" || $1 == "--version" ]]; then
     runhelp
+    exit 0
 fi
 
 # Parse Config file
@@ -44,7 +47,7 @@ declare -a PARSE_ERRORS
 parse_config $1
 if [[ $? == 1 ]]; then
     echo "ERROR: Could not parse config file: $1"
-    for $PARSE_MSG in "${PARSE_ERRORS}"; do
+    for PARSE_MSG in "${PARSE_ERRORS[@]}"; do
         echo $PARSE_MSG
     done
     exit 1
@@ -54,7 +57,8 @@ fi
 VALID_COMMANDS=(check status list run)
 array_contains VALID_COMMANDS $2
 if [[ $? != 0 ]]; then
-    echo "ERROR: Invalid command '$2' given."
+    runhelp
+    echo "ERROR: Invalid command given: $2"
     exit 1
 fi
 COMMAND=$2
