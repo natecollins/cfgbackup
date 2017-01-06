@@ -40,6 +40,7 @@ fi
 
 # Parse Config file
 declare -A CONFIG
+declare -a PARSE_ERRORS
 parse_config $1
 if [[ $? == 1 ]]; then
     echo "ERROR: Could not parse config file: $1"

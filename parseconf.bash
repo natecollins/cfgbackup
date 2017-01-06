@@ -16,6 +16,7 @@ default_config() {
     CONFIG[ABORTED_DIRNAME]=backup-aborted
     CONFIG[ALLOW_DELETIONS]=1
     CONFIG[ALLOW_OVERWRITES]=1
+    CONFIG[MAX_ROTATIONS]=
     CONFIG[ROTATIONALS_HARD_LINK]=0
     CONFIG[IDENTICALS_HARD_LINK]=0
     CONFIG[PRE_SCRIPT]=
@@ -25,27 +26,52 @@ default_config() {
 }
 
 ###############################
+## Parse a value for a given config line
+##  $1 -> File to search
+##  $2 -> Name of parameter to get value for
+## Prints the string value, or empty string if not found
+config_param_get() {
+    grep -E "^ *$2 *=" $1 | tail -n 1 | cut -d= -f2- | sed 's/ *$//' | sed 's/^ *//'
+}
+
+###############################
 ## Parse config file given
 ## Returns 0 on success, 1 on error
 ## Any errors will be in PARSE_ERRORS
 parse_config() {
-    declare -a PARSE_ERRORS
     default_config
+    CONFIG_FILE=$1
 
     # Verify config file exists and is readable
-    #TODO
+    if [[ ! -f $CONFIG_FILE || ! -r $CONFIG_FILE ]]; then
+        PARSE_ERRORS+=("Config file doesn't exist or isn't readable.")
+    else
+        # Parse config file for variables
+        for KEY in "${!CONFIG[@]}"; do
+            # Get variable values from config file
+            CONFIG_VALUE=$(config_param_get $CONFIG_FILE $KEY)
+            # If value is empty, leave as default
+            if [[ $CONFIG_VALUE == "" ]]; then
+                CONFIG_VALUE=${CONFIG[$KEY]}
+            fi
+            # Update CONFIG values
+            CONFIG[$KEY]=$CONFIG_VALUE
+        done
 
-    # Parse config file for variables
-    #TODO
-        # Record unknown variables as errors
-        #TODO
-        # Record any line that is not a variable/comment or blank as an error
-        #TODO
-        # Set known variables into CONFIG array
-        #TODO
-
-    # Ensure SOURCE_DIR, TARGET_DIR, and BACKUP_TYPE are set
-    #TODO
+        # Ensure SOURCE_DIR, TARGET_DIR, and BACKUP_TYPE are set
+        if [[ ${CONFIG[SOURCE_DIR]} == "" ]]; then
+            PARSE_ERRORS+=("Missing required value for SOURCE_DIR.")
+        fi
+        if [[ ${CONFIG[TARGET_DIR]} == "" ]]; then
+            PARSE_ERRORS+=("Missing required value for TARGET_DIR.")
+        fi
+        if [[ ${CONFIG[BACKUP_TYPE]} == "" ]]; then
+            PARSE_ERRORS+=("Missing required value for BACKUP_TYPE.")
+        fi
+        if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" && ( ! ${CONFIG[MAX_ROTATIONS]} =~ ^[0-9]+$ || ${CONFIG[MAX_ROTATIONS]} -lt 1 ) ]]; then
+            PARSE_ERRORS+=("Value of MAX_ROTATIONS must be a positive integer for rotation backups.")
+        fi
+    fi
 
     if [[ ${#PARSE_ERRORS[@]} -ne 0 ]]; then
         return 1
