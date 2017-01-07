@@ -10,7 +10,6 @@ log_can_write() {
     return $?
 }
 
-
 ###############################
 ## Initialize log
 ## Return 0 on success

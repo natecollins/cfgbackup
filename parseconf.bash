@@ -5,6 +5,7 @@
 ###############################
 ## Creates an array of config variables with default values
 default_config() {
+    declare -g -A CONFIG
     CONFIG[LOG_DIR]=/var/log/cfgbackup/
     CONFIG[LOG_FILENAME]=cfgbackup_DATETIME.log
     CONFIG[SOURCE_DIR]=
@@ -39,6 +40,7 @@ config_param_get() {
 ## Returns 0 on success, 1 on error
 ## Any errors will be in PARSE_ERRORS
 parse_config() {
+    declare -g -a PARSE_ERRORS
     default_config
     CONFIG_FILE=$1
 
