@@ -4,8 +4,9 @@
 
 ###############################
 ## Creates an array of config variables with default values
-##  $1 -> Array to search
+##  $1 -> Name of array to search
 ##  $2 -> Value to find
+## Returns 0 if an element matches the value to find
 array_contains() {
     local ARRNAME=$1[@]
     local HAYSTACK=( ${!ARRNAME} )
@@ -16,6 +17,16 @@ array_contains() {
         fi
     done
     return 1
+}
+
+###############################
+## Get the index of matched value from an indexed array
+##  $1 -> Name of array to search
+##  $2 -> Value to find
+## Returns index of matching value; returns -1 if value not found
+array_value_index() {
+    #TODO
+    return -1
 }
 
 ###############################
@@ -32,5 +43,35 @@ substr_index() {
     fi
     return -1
 }
+
+###############################
+## Trim pattern from both beginning and end of string
+##  $1 -> The string to trim from
+##  $2 -> The pattern to trim
+## Prints out the trimmed string
+str_trim() {
+    local FULLSTR="$1"
+    local PTRN="$2"
+    local TRIMSTR="${FULLSTR%%$PTRN}"
+    TRIMSTR="${TRIMSTR##$PTRN}"
+    echo $TRIMSTR
+}
+
+###############################
+## Combine two strings into a full file/directory path
+##  $1 -> First part of path, may not be empty
+##  $2 -> Second part of path
+## Returns the combined path, with no trailing slash
+path_join() {
+    if [[ $1 == "" ]]; then
+        echo "ERROR: Cannot path_join empty string."
+        exit 1
+    fi
+    PATH1="${1%/}"
+    PATH2="${2%/}"
+    PATH2="${PATH2#/}"
+    echo "$PATH1/$PATH2"
+}
+
 
 

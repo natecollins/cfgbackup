@@ -6,6 +6,10 @@
 ## Check if a backup running directory exists in the target directory
 ## Returns 0 if RUNNING_DIRNAME exists, 1 otherwise
 rotate_backup_running() {
+    CHECK_RUN=$( path_join "${CONFIG[TARGET_DIR]}" "${CONFIG[RUNNING_DIRNAME]}" )
+    if [[ -d $CHECK_RUN ]]; then
+        return 0
+    fi
     return 1
 }
 
@@ -13,6 +17,10 @@ rotate_backup_running() {
 ## Check if a backup aborted directory exists in the target directory
 ## Returns 0 if ABORTED_DIRNAME exists, 1 otherwise
 rotate_backup_aborted() {
+    CHECK_ABT=$( path_join "${CONFIG[TARGET_DIR]}" "${CONFIG[ABORTED_DIRNAME]}" )
+    if [[ -d $CHECK_ABT ]]; then
+        return 0
+    fi
     return 1
 }
 
@@ -24,6 +32,22 @@ rotate_is_ready() {
         return 1
     fi
     return 0
+}
+
+###############################
+## Get list of current backup directories, including active and aborted dirs
+## Ordered by newest backups first, with active/aborted dirs considered newest
+## If number of backups exceeds MAX_ROTATIONS, only gets MAX_ROTATIONS directories
+## Sets the results in the array: BACKUP_ROTATION_DIRS
+rotate_get_dirs() {
+    declare -g -a BACKUP_ROTATION_DIRS
+    readarray BACKUP_ROTATION_DIRS < <( ls -1 ${CONFIG[TARGET_DIR]} | sort -V )
+    array_contains BACKUP_ROTATION_DIRS ${CONFIG[RUNNING_DIRNAME]}
+    RUN_DIR=$?
+    array_contains BACKUP_ROTATION_DIRS ${CONFIG[ABORTED_DIRNAME]}
+    ABT_DIR=$?
+    #
+    #TODO
 }
 
 ###############################
