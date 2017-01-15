@@ -78,8 +78,21 @@ path_join() {
     PATH1="${1%/}"
     PATH2="${2%/}"
     PATH2="${PATH2#/}"
-    echo "$PATH1/$PATH2"
+    if [[ $PATH2 != "" ]]; then
+        PATH2="/${PATH2}"
+    fi
+    echo "${PATH1}${PATH2}"
 }
 
+###############################
+## Combine two strings into a full file/directory path, and
+## escapes the resulting string for use in a command
+##  $1 -> First part of path, may not be empty
+##  $2 -> Second part of path
+## Returns the combined path, with no trailing slash, escaped
+epath_join() {
+    P=$( path_join "$1" "$2" )
+    printf '%q' "$P"
+}
 
 

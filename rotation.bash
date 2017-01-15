@@ -67,7 +67,6 @@ rotate_backup_count() {
 
 ###############################
 ## Outputs the name of the oldest backup directory that is not older than MAX_ROTATIONS
-## If a running/aborted backup exists, that directory is output instead
 rotate_oldest_backup() {
     local BACKUP_COUNT=$( rotate_backup_count )
     if [[ $BACKUP_COUNT -gt 0 ]]; then
@@ -77,9 +76,48 @@ rotate_oldest_backup() {
 
 ###############################
 ## Create/rename directory to begin new backup
-## Returns 0 on success, 1 on running dir already exists, 2 on other error
+## Exits script with code 1 on failure
 rotate_start() {
-    return 1
+    rotate_backup_count
+    ROT_COUNT=$?
+    # Check for abort directory
+    if [[ ${BACKUP_ROTATION_DIRS[0]} == ${CONFIG[ABORTED_DIRNAME]} || \
+          ${BACKUP_ROTATION_DIRS[1]} == ${CONFIG[ABORTED_DIRNAME]} ]]; then
+        echo "ERROR: Aborted backup directory exists: ${CONFIG[ABORTED_DIRNAME]}"
+        exit 1
+    fi
+    # Check for active directory
+    if [[ ${BACKUP_ROTATION_DIRS[0]} == ${CONFIG[RUNNING_DIRNAME]} || \
+          ${BACKUP_ROTATION_DIRS[1]} == ${CONFIG[RUNNING_DIRNAME]} ]]; then
+        echo "ERROR: Running backup directory already exists: ${CONFIG[RUNNING_DIRNAME]}"
+        exit 1
+    fi
+
+    # Check if at rotation max
+    RUN_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${CONFIG_FILE[RUNNING_DIRNAME]} )
+    if [[ $ROT_COUNT -eq ${COUNT[MAX_ROTATIONS]} ]]; then
+        # Rename oldest directory for run
+        OLDEST_DIR=$( rotate_oldest_backup )
+        if [[ $OLDEST_DIR != "" ]]; then
+            PREV_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${OLDEST_DIR} )
+            mv $PREV_DIR $RUN_DIR
+            if [[ $? -ne 0 ]]; then
+                echo "ERROR: Could not rotate directory: ${OLDEST_DIR}"
+                exit 1
+            fi
+        else
+            # One of those "shouldn't be possible" situations
+            echo "ERROR: Failed to find old directory to rotate."
+            exit 1
+        fi
+    else
+        # Create new directory for run
+        mkdir $RUN_DIR
+        if [[ $? -ne 0 ]]; then
+            echo "ERROR: Could not create new rotate directory: ${OLDEST_DIR}"
+            exit 1
+        fi
+    fi
 }
 
 ###############################
@@ -91,6 +129,12 @@ rotate_complete() {
 ###############################
 ## Attempt to stop active job and rename running directory
 rotate_abort() {
+    return 1
+}
+
+###############################
+## Reset aborted backup directory for use again
+rotate_reset_abort() {
     return 1
 }
 
