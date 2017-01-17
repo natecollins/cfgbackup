@@ -123,6 +123,43 @@ rotate_start() {
 ###############################
 ## Rotate directories after backup completes and rename running directory
 rotate_complete() {
+    MATCH_NUM0=$( substr_index "${CONFIG[SUBDIR_NAME]}" "NUM0" )
+    MATCH_DATE=$( substr_index "${CONFIG[SUBDIR_NAME]}" "DATE" )
+    if [[ $MATCH_DATE != "-1" ]]; then
+        rotate_complete_date
+    elif [[ $MATCH_NUM0 != "-1" ]]; then
+        rotate_complete_num "0"
+    else
+        rotate_complete_num "1"
+    fi
+}
+
+rotate_complete_date() {
+    TODAY=$( date +%Y%m%d )
+    COMPL_SUB=${CONFIG[SUBDIR_NAME]/DATE/$TODAY}
+    COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${COMPL_SUB} )
+    COMPL_EXT=0
+    # Check if complete dir already exists (with some sanity limits)
+    while [[ -d $COMPL_DIR && $COMPL_EXT -lt 1000 ]]; do
+        # If exists, append .1, .2, .3, etc to complete dir
+        COMPL_EXT=$(( COMPL_EXT + 1 ))
+        COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} "${COMPL_SUB}.${COMPL_EXT}" )
+    done
+    # Too many backups!
+    if [[ $COMPL_EXT -gt 999 ]]; then
+        echo "ERROR: Too many backups for single date (Max of 999): ${TODAY}"
+        rotate_abort
+    fi
+    # Rename to complete dir
+    RUN_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${CONFIG_FILE[RUNNING_DIRNAME]} )
+    mv $RUN_DIR $COMPL_DIR
+    if [[ $? -ne 0 ]]; then
+        echo "ERROR: Could not rename completed backup to: ${COMPL_DIR}"
+        exit 1
+    fi
+}
+
+rotate_complete_num() {
     return 1
 }
 

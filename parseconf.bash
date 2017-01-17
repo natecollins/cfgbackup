@@ -73,6 +73,15 @@ parse_config() {
         if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" && ( ! ${CONFIG[MAX_ROTATIONS]} =~ ^[0-9]+$ || ${CONFIG[MAX_ROTATIONS]} -lt 1 ) ]]; then
             PARSE_ERRORS+=("Value of MAX_ROTATIONS must be a positive integer for rotation backups.")
         fi
+        # Ensure SUBDIR_NAME is valid
+        if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
+            MATCH_NUM0=$( substr_index "${CONFIG[SUBDIR_NAME]}" "NUM0" )
+            MATCH_NUM1=$( substr_index "${CONFIG[SUBDIR_NAME]}" "NUM1" )
+            MATCH_DATE=$( substr_index "${CONFIG[SUBDIR_NAME]}" "DATE" )
+            if [[ $MATCH_NUM0 -eq "-1" && $MATCH_NUM1 -eq "-1" && $MATCH_DATE -eq "-1" ]]; then
+                PARSE_ERRORS+=("No valid rotation key in SUBDIR_NAME. Must include one of: NUM0, NUM1, or DATE")
+            fi
+        fi
     fi
 
     if [[ ${#PARSE_ERRORS[@]} -ne 0 ]]; then
