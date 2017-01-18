@@ -10,6 +10,7 @@ VERSION=0.0.1
 . rotation.bash
 . parseconf.bash
 . checkjob.bash
+. runjob.bash
 
 # Command help
 runhelp() {
@@ -66,10 +67,11 @@ COMMAND=$2
 # Run commands
 if [[ $COMMAND == "check" ]]; then
     command_check
+    echo "Config is OK."
 fi
 if [[ $COMMAND == "run" ]]; then
-    echo "TODO command_run"
-    #TODO command_run
+    command_check
+    command_run
 fi
 if [[ $COMMAND == "status" ]]; then
     echo "TODO command_status"

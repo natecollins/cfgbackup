@@ -65,8 +65,5 @@ command_check() {
             exit 1
         fi
     done
-
-    echo "Config is OK."
-    exit 0
 }
 
