@@ -31,6 +31,8 @@ runhelp() {
     echo "  list    - List information about backups that have been created"
     echo "            using the given config."
     echo "  run     - Run the backup according to the config file provided."
+    echo "  reset   - Resets partially completed or failed backups. This will"
+    echo "            abort a currently running backup."
     echo ""
     echo "cfgbackup v${VERSION}"
     echo ""
@@ -52,7 +54,7 @@ if [[ $? == 1 ]]; then
 fi
 
 # Verify command
-VALID_COMMANDS=(check status list run)
+VALID_COMMANDS=(check status list run reset)
 array_contains VALID_COMMANDS $2
 if [[ $? != 0 ]]; then
     runhelp
@@ -76,6 +78,10 @@ fi
 if [[ $COMMAND == "list" ]]; then
     echo "TODO command_list"
     #TODO command_list
+fi
+if [[ $COMMAND == "reset" ]]; then
+    echo "TODO command_reset"
+    #TODO command_reset
 fi
 
 

@@ -150,7 +150,7 @@ rotate_complete_date() {
     # Too many backups!
     if [[ $COMPL_EXT -gt 999 ]]; then
         echo "ERROR: Too many backups for single date (Max of 999): ${TODAY}"
-        rotate_abort
+        exit 1
     fi
     # Rename to complete dir
     RUN_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${CONFIG_FILE[RUNNING_DIRNAME]} )
@@ -179,7 +179,7 @@ rotate_complete_num() {
     LAST_N=$(( $FIRST_N + ${CONFIG[MAX_ROTATIONS]} - 1 ))
     # Attempt to locate a gap
     GAP_N=""
-    for N in $( seq $FIRST_N $LAST_N )); do
+    for N in $( seq $FIRST_N $LAST_N ); do
         GAP_DIR=$( rotate_subdir_num $N )
         if [[ ! -d $GAP_DIR ]]; then
             GAP_N=$N
@@ -213,17 +213,5 @@ rotate_complete_num() {
         echo "ERROR: Could not rename directory from ${RUN_DIR} to ${FIRST_DIR}"
         exit 1
     fi
-}
-
-###############################
-## Attempt to stop active job and rename running directory
-rotate_abort() {
-    return 1
-}
-
-###############################
-## Reset aborted backup directory for use again
-rotate_reset_abort() {
-    return 1
 }
 

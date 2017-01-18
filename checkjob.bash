@@ -6,10 +6,8 @@
 ## Check if source directory is remote
 ## Return 0 if remote; 1 otherwise
 source_is_remote() {
-    substr_index "${CONFIG[SOURCE_DIR]}" ":"
-    local COLON_IDX=$?
-    substr_index "${CONFIG[SOURCE_DIR]}" "/"
-    local SLASH_IDX=$?
+    local COLON_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" ":" )
+    local SLASH_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" "/" )
     if [[ $COLON_IDX -ge "0" && $COLON_IDX -lt $SLASH_IDX ]]; then
         return 0
     fi
@@ -29,8 +27,7 @@ command_check() {
     # Test source access
     source_is_remote
     if [[ $? == 0 ]]; then
-        substr_index "${CONFIG[SOURCE_DIR]}" ":"
-        local COLON_IDX=$?
+        local COLON_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" ":" )
         local SSH_CONNECT=${CONFIG[SOURCE_DIR]:0:$COLON_IDX}
         local SSH_SOURCE=${CONFIG[SOURCE_DIR]:1+$COLON_IDX}
         # Check SSH connection
