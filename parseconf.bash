@@ -70,8 +70,8 @@ parse_config() {
         if [[ ${CONFIG[BACKUP_TYPE]} == "" ]]; then
             PARSE_ERRORS+=("Missing required value for BACKUP_TYPE.")
         fi
-        if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" && ( ! ${CONFIG[MAX_ROTATIONS]} =~ ^[0-9]+$ || ${CONFIG[MAX_ROTATIONS]} -lt 1 ) ]]; then
-            PARSE_ERRORS+=("Value of MAX_ROTATIONS must be a positive integer for rotation backups.")
+        if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" && ( ! ${CONFIG[MAX_ROTATIONS]} =~ ^[0-9]+$ || ${CONFIG[MAX_ROTATIONS]} -lt 2 ) ]]; then
+            PARSE_ERRORS+=("Value of MAX_ROTATIONS must be an integer greater than 1 for rotation backups.")
         fi
         # Ensure SUBDIR_NAME is valid
         if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then

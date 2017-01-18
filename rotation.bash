@@ -134,13 +134,15 @@ rotate_complete() {
     fi
 }
 
+###############################
+## Having completed a running backup, rename running directory to a date based directory
 rotate_complete_date() {
     TODAY=$( date +%Y%m%d )
     COMPL_SUB=${CONFIG[SUBDIR_NAME]/DATE/$TODAY}
     COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${COMPL_SUB} )
     COMPL_EXT=0
     # Check if complete dir already exists (with some sanity limits)
-    while [[ -d $COMPL_DIR && $COMPL_EXT -lt 1000 ]]; do
+    while [[ -d $COMPL_DIR && $COMPL_EXT -le 999 ]]; do
         # If exists, append .1, .2, .3, etc to complete dir
         COMPL_EXT=$(( COMPL_EXT + 1 ))
         COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} "${COMPL_SUB}.${COMPL_EXT}" )
@@ -159,8 +161,58 @@ rotate_complete_date() {
     fi
 }
 
+###############################
+## Shortcut function to create an escaped fullpath for a given num dir
+##  $1 -> Num of subdir
+## Outputs the escaped full path
+rotate_subdir_num() {
+    NUM=$?
+    NUMDIR=${CONFIG[SUBDIR_NAME]/NUM[0-1]/$NUM}
+    FULL_SUBDIR=$( epath_join ${CONFIG[TARGET_DIR]} ${NUMDIR} )
+    echo $FULL_SUBDIR
+}
+
+###############################
+## Having completed a running backup, rotate number based subdirectories
 rotate_complete_num() {
-    return 1
+    FIRST_N=$?
+    LAST_N=$(( $FIRST_N + ${CONFIG[MAX_ROTATIONS]} - 1 ))
+    # Attempt to locate a gap
+    GAP_N=""
+    for N in $( seq $FIRST_N $LAST_N )); do
+        GAP_DIR=$( rotate_subdir_num $N )
+        if [[ ! -d $GAP_DIR ]]; then
+            GAP_N=$N
+            break
+        fi
+    done
+    if [[ $GAP_N != "" ]]; then
+        LAST_N=$GAP_N
+    fi
+    # If last directory already exists, we cannot rotate
+    LAST_DIR=$( rotate_subdir_num $LAST_N )
+    if [[ -d $LAST_DIR ]]; then
+        echo "ERROR: Could not rotate due to directory already existing: ${LAST_DIR}"
+        exit 1
+    fi
+    # Rotate directories
+    for N in $( seq $(( LAST_N - 1 )) -1 $FIRST_N ); do
+        ROT_FROM=$( rotate_subdir_num $N )
+        ROT_TO=$( rotate_subdir_num $(( N + 1)) )
+        mv $ROT_FROM $ROT_TO
+        if [[ $? -ne 0 ]]; then
+            echo "ERROR: Failed to rotate directory from ${ROT_FROM} to ${ROT_TO}"
+            exit 1
+        fi
+    done
+    # Rename running dir
+    RUN_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${CONFIG_FILE[RUNNING_DIRNAME]} )
+    FIRST_DIR=$( rotate_subdir_num $FIRST_N )
+    mv $RUN_DIR $FIRST_DIR
+    if [[ $? -ne 0 ]]; then
+        echo "ERROR: Could not rename directory from ${RUN_DIR} to ${FIRST_DIR}"
+        exit 1
+    fi
 }
 
 ###############################
