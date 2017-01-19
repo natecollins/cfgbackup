@@ -54,6 +54,9 @@ if [[ $? == 1 ]]; then
     exit 1
 fi
 
+# Verify required tools and versions
+#TODO bash4, rsync, etc
+
 # Verify command
 VALID_COMMANDS=(check status list run reset)
 array_contains VALID_COMMANDS $2
@@ -74,8 +77,8 @@ if [[ $COMMAND == "run" ]]; then
     command_run
 fi
 if [[ $COMMAND == "status" ]]; then
-    echo "TODO command_status"
-    #TODO command_status
+    command_check
+    command_status
 fi
 if [[ $COMMAND == "list" ]]; then
     echo "TODO command_list"
