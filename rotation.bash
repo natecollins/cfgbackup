@@ -14,27 +14,6 @@ rotate_backup_running() {
 }
 
 ###############################
-## Check if a backup aborted directory exists in the target directory
-## Returns 0 if ABORTED_DIRNAME exists, 1 otherwise
-rotate_backup_aborted() {
-    CHECK_ABT=$( path_join "${CONFIG[TARGET_DIR]}" "${CONFIG[ABORTED_DIRNAME]}" )
-    if [[ -d $CHECK_ABT ]]; then
-        return 0
-    fi
-    return 1
-}
-
-###############################
-## Check if it is safe to start a new backup rotation
-## Returns 0 if no running or aborted backups exist, 1 otherwise
-rotate_is_ready() {
-    if rotate_backup_running || rotate_backup_aborted; then
-        return 1
-    fi
-    return 0
-}
-
-###############################
 ## Get list of current backup directories, including active and aborted dirs
 ## Ordered by newest backups first, with running/aborted dirs considered newest
 ## If number of backups exceeds MAX_ROTATIONS, only gets MAX_ROTATIONS directories
@@ -159,6 +138,7 @@ rotate_complete_date() {
         echo "ERROR: Could not rename completed backup to: ${COMPL_DIR}"
         exit 1
     fi
+    touch $COMPL_DIR
 }
 
 ###############################
@@ -213,5 +193,6 @@ rotate_complete_num() {
         echo "ERROR: Could not rename directory from ${RUN_DIR} to ${FIRST_DIR}"
         exit 1
     fi
+    touch $FIRST_DIR
 }
 

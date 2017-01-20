@@ -10,6 +10,7 @@ VERSION=0.0.1
 . rotation.bash
 . parseconf.bash
 . checkjob.bash
+. statusjob.bash
 . runjob.bash
 
 # Command help
@@ -45,7 +46,8 @@ if [[ -z "$1" || $1 == "-h" || $1 == "--help" || $1 == "help" || $1 == "--versio
 fi
 
 # Parse Config file
-parse_config $1
+CONFIG_FILE=$1
+parse_config $CONFIG_FILE
 if [[ $? == 1 ]]; then
     echo "ERROR: Could not parse config file: $1"
     for PARSE_MSG in "${PARSE_ERRORS[@]}"; do
@@ -56,6 +58,10 @@ fi
 
 # Verify required tools and versions
 #TODO bash4, rsync, etc
+
+# Global variables
+RUN_DIR=$( epath_join "${CONFIG[TARGET_DIR]}" "${CONFIG[RUNNING_DIRNAME]}" )
+PID_FILE=$( path_join "$RUN_DIR" "cfgbackup.pid" )
 
 # Verify command
 VALID_COMMANDS=(check status list run reset)
