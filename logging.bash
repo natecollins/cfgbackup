@@ -20,15 +20,24 @@ log_init() {
     CONFIG[LOG_FILENAME]=${CONFIG[LOG_FILENAME]//DATE/$(date +%Y%m%d)}
     CONFIG[LOG_FILENAME]=${CONFIG[LOG_FILENAME]//TIME/$(date +%H%M%S)}
     # Test access to file
-    touch ${CONFIG[LOG_DIR]}${CONFIG[LOG_FILENAME]} 2> /dev/null
-    echo $?
+    declare -g LOG_FILE
+    LOG_DIR=$( epath_join ${CONFIG[LOG_DIR]} ${CONFIG[LOG_FILENAME]} )
+    touch $LOG_DIR 2> /dev/null
+    return $?
 }
 
 ###############################
 ## Create a logfile entry
 ##  $1 -> Log message entry
 log_entry() {
-    echo "$1" >> ${CONFIG[LOG_DIR]}${CONFIG[LOG_FILENAME]}
+    MSG=$( printf '%q' "$1" )
+    echo -e "$MSG" >> $LOG_FILE
 }
 
+###############################
+## Get name of most recent log file for current config
+## Prints escaped full path of file
+log_last_file() {
+    echo "TODO"
+}
 

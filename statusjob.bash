@@ -88,5 +88,10 @@ command_status() {
     echo "Status:               $CONFIG_STAT"
     echo "Started:              $JOB_STARTED"
     echo "Process ID:           $PID_NUM"
+    LAST_LOGFILE=$( log_last_file )
+    if [[ ! -z $LAST_LOGFILE ]]; then
+        echo "Recent log messages:"
+        tail -n 3 $( log_last_file )
+    fi
 }
 
