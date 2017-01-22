@@ -73,11 +73,12 @@ rotate_start() {
     fi
 
     # Check if at rotation max
-    RUN_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${CONFIG_FILE[RUNNING_DIRNAME]} )
     if [[ $ROT_COUNT -eq ${COUNT[MAX_ROTATIONS]} ]]; then
+        log_entry "| At maximum rotation count of ${COUNT[MAX_ROTATIONS]}"
         # Rename oldest directory for run
         OLDEST_DIR=$( rotate_oldest_backup )
         if [[ $OLDEST_DIR != "" ]]; then
+            log_entry "| Renaming: $OLDEST_DIR => ${CONFIG[RUNNING_DIRNAME]}"
             PREV_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${OLDEST_DIR} )
             mv $PREV_DIR $RUN_DIR
             if [[ $? -ne 0 ]]; then
@@ -90,6 +91,8 @@ rotate_start() {
             exit 1
         fi
     else
+        log_entry "| Found $ROT_COUNT backups out of a max of ${COUNT[MAX_ROTATIONS]}"
+        log_entry "| Creating new directory: ${CONFIG[RUNNING_DIRNAME]}"
         # Create new directory for run
         mkdir $RUN_DIR
         if [[ $? -ne 0 ]]; then
@@ -131,8 +134,8 @@ rotate_complete_date() {
         echo "ERROR: Too many backups for single date (Max of 999): ${TODAY}"
         exit 1
     fi
+    log_entry "| Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $COMPL_DIR )"
     # Rename to complete dir
-    RUN_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${CONFIG_FILE[RUNNING_DIRNAME]} )
     mv $RUN_DIR $COMPL_DIR
     if [[ $? -ne 0 ]]; then
         echo "ERROR: Could not rename completed backup to: ${COMPL_DIR}"
@@ -179,6 +182,7 @@ rotate_complete_num() {
     for N in $( seq $(( LAST_N - 1 )) -1 $FIRST_N ); do
         ROT_FROM=$( rotate_subdir_num $N )
         ROT_TO=$( rotate_subdir_num $(( N + 1)) )
+        log_entry "| Renaming: $( basename $ROT_FROM ) => $( basename $ROT_TO )"
         mv $ROT_FROM $ROT_TO
         if [[ $? -ne 0 ]]; then
             echo "ERROR: Failed to rotate directory from ${ROT_FROM} to ${ROT_TO}"
@@ -186,8 +190,8 @@ rotate_complete_num() {
         fi
     done
     # Rename running dir
-    RUN_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${CONFIG_FILE[RUNNING_DIRNAME]} )
     FIRST_DIR=$( rotate_subdir_num $FIRST_N )
+    log_entry "| Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $FIRST_DIR )"
     mv $RUN_DIR $FIRST_DIR
     if [[ $? -ne 0 ]]; then
         echo "ERROR: Could not rename directory from ${RUN_DIR} to ${FIRST_DIR}"

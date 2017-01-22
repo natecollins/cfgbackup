@@ -59,9 +59,14 @@ fi
 # Verify required tools and versions
 #TODO bash4, rsync, etc
 
-# Global variables
+# Global variables (default rotation)
 RUN_DIR=$( epath_join "${CONFIG[TARGET_DIR]}" "${CONFIG[RUNNING_DIRNAME]}" )
 PID_FILE=$( path_join "$RUN_DIR" "cfgbackup.pid" )
+# Globals (sync)
+if [[ ${CONFIG[BACKUP_TYPE]} == "sync" ]]; then
+    RUN_DIR=$( epath_join "${CONFIG[TARGET_DIR]}" )
+    PID_FILE=$( path_join "$RUN_DIR" "cfgbackup.pid" )
+fi
 
 # Verify command
 VALID_COMMANDS=(check status list run reset)
