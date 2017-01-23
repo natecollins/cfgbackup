@@ -26,8 +26,8 @@ status_is_busy() {
 ## Check if the backup is successfully running
 ## Returns 0 if job is running and a pid file exists and a process with matching pid exists, 1 otherwise
 status_is_running() {
-    if [[ -d $RUN_DIR && -f $PID_FILE ]]; then
-        PID=$( cat PID_FILE )
+    if [[ -d $RUN_DIR && -f $PID_FULL ]]; then
+        PID=$( cat PID_FULL )
         ps -p $PID > /dev/null
         PID_FOUND=$?
         if [[ $PID_FOUND -eq 0 ]]; then
@@ -41,8 +41,8 @@ status_is_running() {
 ## Check if the backup did not complete and exited uncleanly
 ## Returns 0 if running directory exists and pid file exists without any matching process for that pid; 1 otherwise
 status_is_dead() {
-    if [[ -d $RUN_DIR && -f $PID_FILE ]]; then
-        PID=$( cat PID_FILE )
+    if [[ -d $RUN_DIR && -f $PID_FULL ]]; then
+        PID=$( cat PID_FULL )
         ps -p $PID > /dev/null
         PID_FOUND=$?
         if [[ $PID_FOUND -ne 0 ]]; then
@@ -56,7 +56,7 @@ status_is_dead() {
 ## Check if the backup did not complete, but exited cleanly
 ## Returns 0 if running directory exists and there is no pid file; 1 otherwise
 status_is_failed() {
-    if [[ -d $RUN_DIR && ! -f $PID_FILE ]]; then
+    if [[ -d $RUN_DIR && ! -f $PID_FULL ]]; then
         return 0;
     fi
     return 1
@@ -75,12 +75,12 @@ command_status() {
     fi
 
     JOB_STARTED="-"
-    if [[ -f $PID_FILE ]]; then
-        JOB_STARTED=$( date -r $PID_FILE +%Y-%m-%d\ %H:%M:%S )
+    if [[ -f $PID_FULL ]]; then
+        JOB_STARTED=$( date -r $PID_FULL +%Y-%m-%d\ %H:%M:%S )
     fi
     PID_NUM="-"
     if status_is_running; then
-        PID_NUM=$( cat $PID_FILE )
+        PID_NUM=$( cat $PID_FULL )
     fi
 
     echo "======= cfgbackup job status ======="

@@ -27,11 +27,6 @@ rotate_get_dirs() {
         unset BACKUP_ROTATION_DIRS[$RUN_IDX]
         BACKUP_ROTATION_DIRS=( ${CONFIG_FILE[RUNNING_DIRNAME]} "${BACKUP_ROTATION_DIRS[@]}" )
     fi
-    ABT_IDX=$( array_value_index BACKUP_ROTATION_DIRS ${CONFIG[ABORTED_DIRNAME]} )
-    if [[ $ABT_IDX != "-1" ]]; then
-        unset BACKUP_ROTATION_DIRS[$ABT_IDX]
-        BACKUP_ROTATION_DIRS=( ${CONFIG_FILE[ABORTED_DIRNAME]} "${BACKUP_ROTATION_DIRS[@]}" )
-    fi
     # Limit to MAX_ROTATIONS
     BACKUP_ROTATION_DIRS=${BACKUP_ROTATION_DIRS[@]:0:${CONFIG[MAX_ROTATIONS]}}
 }
@@ -56,15 +51,10 @@ rotate_oldest_backup() {
 ###############################
 ## Create/rename directory to begin new backup
 ## Exits script with code 1 on failure
+## Returns 0 on new empty run dir created, returns 1 on re-using oldest backup dir
 rotate_start() {
     rotate_backup_count
     ROT_COUNT=$?
-    # Check for abort directory
-    if [[ ${BACKUP_ROTATION_DIRS[0]} == ${CONFIG[ABORTED_DIRNAME]} || \
-          ${BACKUP_ROTATION_DIRS[1]} == ${CONFIG[ABORTED_DIRNAME]} ]]; then
-        echo "ERROR: Aborted backup directory exists: ${CONFIG[ABORTED_DIRNAME]}"
-        exit 1
-    fi
     # Check for active directory
     if [[ ${BACKUP_ROTATION_DIRS[0]} == ${CONFIG[RUNNING_DIRNAME]} || \
           ${BACKUP_ROTATION_DIRS[1]} == ${CONFIG[RUNNING_DIRNAME]} ]]; then
@@ -85,6 +75,7 @@ rotate_start() {
                 echo "ERROR: Could not rotate directory: ${OLDEST_DIR}"
                 exit 1
             fi
+            return 1
         else
             # One of those "shouldn't be possible" situations
             echo "ERROR: Failed to find old directory to rotate."
@@ -99,6 +90,7 @@ rotate_start() {
             echo "ERROR: Could not create new rotate directory: ${OLDEST_DIR}"
             exit 1
         fi
+        return 0
     fi
 }
 
