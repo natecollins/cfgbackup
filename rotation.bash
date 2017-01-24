@@ -40,6 +40,22 @@ rotate_backup_count() {
 }
 
 ###############################
+## Get the name of the most recent non-running rotation directory
+## Outputs the directory name, or nothing if no prior backups exist
+rotate_current_backup() {
+    local BACKUP_COUNT=$( rotate_backup_count )
+    local RECENT_ROT=
+    if [[ $BACKUP_COUNT -gt 0 ]]; then
+        if [[ ${BACKUP_ROTATION_DIRS[0]} != ${CONFIG[RUNNING_DIRNAME]} ]]; then
+            RECENT_ROT=${BACKUP_ROTATION_DIRS[0]}
+        elif [[ $BACKUP_COUNT -gt 1 ]]; then
+            RECENT_ROT=${BACKUP_ROTATION_DIRS[1]}
+        fi
+    fi
+    echo "$RECENT_ROT"
+}
+
+###############################
 ## Outputs the name of the oldest backup directory that is not older than MAX_ROTATIONS
 rotate_oldest_backup() {
     local BACKUP_COUNT=$( rotate_backup_count )
@@ -56,8 +72,7 @@ rotate_start() {
     rotate_backup_count
     ROT_COUNT=$?
     # Check for active directory
-    if [[ ${BACKUP_ROTATION_DIRS[0]} == ${CONFIG[RUNNING_DIRNAME]} || \
-          ${BACKUP_ROTATION_DIRS[1]} == ${CONFIG[RUNNING_DIRNAME]} ]]; then
+    if [[ ${BACKUP_ROTATION_DIRS[0]} == ${CONFIG[RUNNING_DIRNAME]} ]]; then
         echo "ERROR: Running backup directory already exists: ${CONFIG[RUNNING_DIRNAME]}"
         exit 1
     fi

@@ -30,6 +30,26 @@ command_end() {
 }
 
 ###############################
+## Get what version of rsync are we using
+## Outputs the rsync verion number, e.g. 3.1.0
+rsync_version() {
+    rsync --version | head -n 1 | awk '{ print $3 }'
+}
+
+###############################
+## Is the rsync version at least 3.1.0
+## Returns 0 if version 3.1.0 or greater
+rsync_gte_310() {
+    RSYNC_VER=$( rsync_version )
+    RSYNC_CHECK=$( echo -e "${RSYNC_VER}\n3.1.0" | sort -V | head -n 1 )
+    if [[ $RSYNC_CHECK == "3.1.0" ]]; then
+        return 0;
+    fi
+    return 1
+}
+
+
+###############################
 ## Run a sync job
 runjob_sync() {
     log_entry "| Job type: sync"
@@ -50,9 +70,16 @@ runjob_rotatation() {
 
     if [[ ${CONFIG[ROTATIONALS_HARD_LINK]} == "1" ]]; then
         # Get previous directory for target of link-dest, or skip if no previous backup dir
-
-        # If using old version of rsync (prior to 3.1.0), we must manually link files from
-        # the previous backup dir
+        PREV_BACKUP=$( rotate_current_backup )
+        if [[ $PREV_BACKUP != "" ]]; then
+            # If using old version of rsync (prior to 3.1.0), we must manually link files from
+            # the previous backup dir; version 3.1.0 and later can just use link-dest flag.
+            if rsync_gte_310; then
+                RSYNC_FLAGS="${RSYNC_FLAGS} --link-dest=${PREV_BACKUP}"
+            else
+                #TODO manual link from prev backups
+            fi
+        fi
     fi
 
     #TODO
