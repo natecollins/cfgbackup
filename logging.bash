@@ -21,8 +21,8 @@ log_init() {
     CONFIG[LOG_FILENAME]=${CONFIG[LOG_FILENAME]//TIME/$(date +%H%M%S)}
     # Test access to file
     declare -g LOG_FILE
-    LOG_DIR=$( epath_join ${CONFIG[LOG_DIR]} ${CONFIG[LOG_FILENAME]} )
-    touch $LOG_DIR 2> /dev/null
+    LOG_FILE=$( epath_join ${CONFIG[LOG_DIR]} ${CONFIG[LOG_FILENAME]} )
+    touch $LOG_FILE 2> /dev/null
     return $?
 }
 

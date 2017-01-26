@@ -14,11 +14,11 @@ command_run() {
     echo $$ > $PID_FULL
     log_entry "JOB STARTED:  $( date +%Y-%m-%d\ %H:%M:%S )"
     if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
-        runjob_rotation()
+        runjob_rotation
     elif [[ ${CONFIG[BACKUP_TYPE]} == "sync" ]]; then
-        runjob_sync()
+        runjob_sync
     fi
-    command_end()
+    command_end
 }
 
 ###############################
@@ -48,19 +48,34 @@ rsync_gte_310() {
     return 1
 }
 
+###############################
+## Escape the rsync source path, including the user and host for remote ssh sources
+## Output the escaped path
+escaped_rsync_source() {
+    ESCPATH=$( epath_join ${CONFIG[SOURCE_DIR]} )
+    source_is_remote
+    if [[ $? == 0 ]]; then
+        local COLON_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" ":" )+1
+        local SSH_CONNECT=${CONFIG[SOURCE_DIR]:0:$COLON_IDX}
+        local SSH_SOURCE=${CONFIG[SOURCE_DIR]:1+$COLON_IDX}
+        ESCPATH="${SSH_CONNECT}:\"$( epath_join "$SSH_SOURCE" )\""
+    fi
+    echo "$ESCPATH"
+}
 
 ###############################
 ## Run a sync job
 runjob_sync() {
     log_entry "| Job type: sync"
-    SYNC_FROM=$( epath_join ${CONFIG[SOURCE_DIR]} )
-    SYNC_TO=$( epath_join ${CONFIG[TARGET_DIR]} )
+    SYNC_FROM=$( escaped_rsync_source )
 
     RSYNC_FLAGS="${CONFIG[RSYNC_FLAGS]}"
     # Exclude PID_FILE from being synced
     RSYNC_FLAGS="${RSYNC_FLAGS} --exclude=/${PID_FILE}"
 
-    #TODO rsync command and exit code check
+    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR} > ${LOG_FILE} 2>&1"
+    eval $RSYNC_COMMAND
+    RSYNC_EXIT=$?
 
     # Update timestamp of target dir to indicate backup time
     touch $SYNC_TO
@@ -84,11 +99,24 @@ runjob_rotatation() {
             # the previous backup dir; version 3.1.0 and later works with just the link-dest flag above
             if ! rsync_gte_310; then
                 #TODO manual link from prev backups
+                echo "FAILURE: cfgbackup does not support rsync less than 3.1.0 at this time when performing rotational hard linking."
+                exit 1
             fi
         fi
     fi
 
-    #TODO rsync command and exit code check
+    SYNC_FROM=$( escaped_rsync_source )
+    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR} > ${LOG_FILE} 2>&1"
+    eval $RSYNC_COMMAND
+    RSYNC_EXIT=$?
+    # Check for exit 24 and ignore
+    if [[ $RSYNC_EXIT -eq 24 ]]; then
+        RSYNC_EXIT=0
+    fi
+    # On any error, send email report
+    if [[ $RSYNC_EXIT -gt 0 ]]; then
+        echo "TODO send rsync failure email"
+    fi
 
     # Update timestamp of target dir to indicate backup time
     touch $RUN_DIR

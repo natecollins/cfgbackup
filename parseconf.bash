@@ -23,6 +23,8 @@ default_config() {
     CONFIG[SUCCESS_SCRIPT]=
     CONFIG[FAILED_SCRIPT]=
     CONFIG[FINAL_SCRIPT]=
+    CONFIG[RSYNC_PATH]=rsync
+    CONFIG[PID_FILE]=.cfgbackup.pid
 }
 
 ###############################

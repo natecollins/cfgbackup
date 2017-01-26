@@ -27,7 +27,7 @@ command_check() {
     # Test source access
     source_is_remote
     if [[ $? == 0 ]]; then
-        local COLON_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" ":" )
+        local COLON_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" ":" )+1
         local SSH_CONNECT=${CONFIG[SOURCE_DIR]:0:$COLON_IDX}
         local SSH_SOURCE=${CONFIG[SOURCE_DIR]:1+$COLON_IDX}
         # Check SSH connection
