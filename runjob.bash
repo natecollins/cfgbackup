@@ -11,7 +11,6 @@ command_run() {
     fi
 
     # Record run pid in target dir cfgbackup.pid file
-    echo $$ > $PID_FULL
     log_entry "JOB STARTED:  $( date +%Y-%m-%d\ %H:%M:%S )"
     if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
         runjob_rotation
@@ -66,14 +65,15 @@ escaped_rsync_source() {
 ###############################
 ## Run a sync job
 runjob_sync() {
+    echo $$ > $PID_FULL
     log_entry "| Job type: sync"
     SYNC_FROM=$( escaped_rsync_source )
 
-    RSYNC_FLAGS="${CONFIG[RSYNC_FLAGS]}"
+    RSYNC_FLAGS="-av --stats ${CONFIG[RSYNC_FLAGS]}"
     # Exclude PID_FILE from being synced
     RSYNC_FLAGS="${RSYNC_FLAGS} --exclude=/${PID_FILE}"
 
-    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR} > ${LOG_FILE} 2>&1"
+    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR} >> ${LOG_FILE} 2>&1"
     eval $RSYNC_COMMAND
     RSYNC_EXIT=$?
 
@@ -83,12 +83,13 @@ runjob_sync() {
 
 ###############################
 ## Run a rotate job
-runjob_rotatation() {
+runjob_rotation() {
     log_entry "| Job type: rotation"
     rotate_start
     NEW_RUNDIR=$?
+    echo $$ > $PID_FULL
 
-    RSYNC_FLAGS="${CONFIG[RSYNC_FLAGS]}"
+    RSYNC_FLAGS="-av --stats ${CONFIG[RSYNC_FLAGS]}"
 
     if [[ ${CONFIG[ROTATIONALS_HARD_LINK]} == "1" ]]; then
         # Get previous directory for target of link-dest, or skip if no previous backup dir
@@ -106,7 +107,7 @@ runjob_rotatation() {
     fi
 
     SYNC_FROM=$( escaped_rsync_source )
-    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR} > ${LOG_FILE} 2>&1"
+    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR} >> ${LOG_FILE} 2>&1"
     eval $RSYNC_COMMAND
     RSYNC_EXIT=$?
     # Check for exit 24 and ignore

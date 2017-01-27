@@ -27,7 +27,7 @@ status_is_busy() {
 ## Returns 0 if job is running and a pid file exists and a process with matching pid exists, 1 otherwise
 status_is_running() {
     if [[ -d $RUN_DIR && -f $PID_FULL ]]; then
-        PID=$( cat PID_FULL )
+        PID=$( cat $PID_FULL )
         ps -p $PID > /dev/null
         PID_FOUND=$?
         if [[ $PID_FOUND -eq 0 ]]; then
@@ -42,7 +42,7 @@ status_is_running() {
 ## Returns 0 if running directory exists and pid file exists without any matching process for that pid; 1 otherwise
 status_is_dead() {
     if [[ -d $RUN_DIR && -f $PID_FULL ]]; then
-        PID=$( cat PID_FULL )
+        PID=$( cat $PID_FULL )
         ps -p $PID > /dev/null
         PID_FOUND=$?
         if [[ $PID_FOUND -ne 0 ]]; then

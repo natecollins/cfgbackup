@@ -36,7 +36,7 @@ rotate_get_dirs() {
 ## If number of backups exceeds MAX_ROTATIONS, returns MAX_ROTATIONS instead
 rotate_backup_count() {
     rotate_get_dirs
-    print ${#BACKUP_ROTATION_DIRS[@]}
+    echo ${#BACKUP_ROTATION_DIRS[@]}
 }
 
 ###############################
@@ -69,8 +69,7 @@ rotate_oldest_backup() {
 ## Exits script with code 1 on failure
 ## Returns 0 on new empty run dir created, returns 1 on re-using oldest backup dir
 rotate_start() {
-    rotate_backup_count
-    ROT_COUNT=$?
+    ROT_COUNT=$( rotate_backup_count )
     # Check for active directory
     if [[ ${BACKUP_ROTATION_DIRS[0]} == ${CONFIG[RUNNING_DIRNAME]} ]]; then
         echo "ERROR: Running backup directory already exists: ${CONFIG[RUNNING_DIRNAME]}"
@@ -188,7 +187,7 @@ rotate_complete_num() {
     # Rotate directories
     for N in $( seq $(( LAST_N - 1 )) -1 $FIRST_N ); do
         ROT_FROM=$( rotate_subdir_num $N )
-        ROT_TO=$( rotate_subdir_num $(( N + 1)) )
+        ROT_TO=$( rotate_subdir_num $(( N + 1 )) )
         log_entry "| Renaming: $( basename $ROT_FROM ) => $( basename $ROT_TO )"
         mv $ROT_FROM $ROT_TO
         if [[ $? -ne 0 ]]; then

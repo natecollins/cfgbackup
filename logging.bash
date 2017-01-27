@@ -22,8 +22,7 @@ log_init() {
     # Test access to file
     declare -g LOG_FILE
     LOG_FILE=$( epath_join ${CONFIG[LOG_DIR]} ${CONFIG[LOG_FILENAME]} )
-    touch $LOG_FILE 2> /dev/null
-    return $?
+    return $( log_can_write )
 }
 
 ###############################
