@@ -24,6 +24,7 @@ command_run() {
 ## End job and clean up the pid file
 command_end() {
     log_entry "JOB ENDED: $( date +%Y-%m-%d\ %H:%M:%S )"
+    log_entry ""
     # Cleanup by removing cfgbackup.pid file
     rm $PID_FULL
 }

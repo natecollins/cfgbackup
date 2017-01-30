@@ -29,8 +29,7 @@ log_init() {
 ## Create a logfile entry
 ##  $1 -> Log message entry
 log_entry() {
-    MSG=$( printf '%q' "$1" )
-    echo -e "$MSG" >> $LOG_FILE
+    echo "$1" >> $LOG_FILE
 }
 
 ###############################

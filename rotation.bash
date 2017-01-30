@@ -25,10 +25,10 @@ rotate_get_dirs() {
     RUN_IDX=$( array_value_index BACKUP_ROTATION_DIRS ${CONFIG[RUNNING_DIRNAME]} )
     if [[ $RUN_IDX != "-1" ]]; then
         unset BACKUP_ROTATION_DIRS[$RUN_IDX]
-        BACKUP_ROTATION_DIRS=( ${CONFIG_FILE[RUNNING_DIRNAME]} "${BACKUP_ROTATION_DIRS[@]}" )
+        BACKUP_ROTATION_DIRS=( ${CONFIG[RUNNING_DIRNAME]} "${BACKUP_ROTATION_DIRS[@]}" )
     fi
     # Limit to MAX_ROTATIONS
-    BACKUP_ROTATION_DIRS=${BACKUP_ROTATION_DIRS[@]:0:${CONFIG[MAX_ROTATIONS]}}
+    BACKUP_ROTATION_DIRS=( "${BACKUP_ROTATION_DIRS[@]:0:${CONFIG[MAX_ROTATIONS]}}" )
 }
 
 ###############################
@@ -43,8 +43,8 @@ rotate_backup_count() {
 ## Get the name of the most recent non-running rotation directory
 ## Outputs the directory name, or nothing if no prior backups exist
 rotate_current_backup() {
-    local BACKUP_COUNT=$( rotate_backup_count )
-    local RECENT_ROT=
+    BACKUP_COUNT=$( rotate_backup_count )
+    RECENT_ROT=
     if [[ $BACKUP_COUNT -gt 0 ]]; then
         if [[ ${BACKUP_ROTATION_DIRS[0]} != ${CONFIG[RUNNING_DIRNAME]} ]]; then
             RECENT_ROT=${BACKUP_ROTATION_DIRS[0]}
@@ -58,7 +58,7 @@ rotate_current_backup() {
 ###############################
 ## Outputs the name of the oldest backup directory that is not older than MAX_ROTATIONS
 rotate_oldest_backup() {
-    local BACKUP_COUNT=$( rotate_backup_count )
+    BACKUP_COUNT=$( rotate_backup_count )
     if [[ $BACKUP_COUNT -gt 0 ]]; then
         echo ${BACKUP_ROTATION_DIRS[-1]}
     fi
@@ -69,6 +69,7 @@ rotate_oldest_backup() {
 ## Exits script with code 1 on failure
 ## Returns 0 on new empty run dir created, returns 1 on re-using oldest backup dir
 rotate_start() {
+    rotate_get_dirs
     ROT_COUNT=$( rotate_backup_count )
     # Check for active directory
     if [[ ${BACKUP_ROTATION_DIRS[0]} == ${CONFIG[RUNNING_DIRNAME]} ]]; then
@@ -77,8 +78,8 @@ rotate_start() {
     fi
 
     # Check if at rotation max
-    if [[ $ROT_COUNT -eq ${COUNT[MAX_ROTATIONS]} ]]; then
-        log_entry "| At maximum rotation count of ${COUNT[MAX_ROTATIONS]}"
+    if [[ $ROT_COUNT -eq ${CONFIG[MAX_ROTATIONS]} ]]; then
+        log_entry "| At maximum rotation count of ${CONFIG[MAX_ROTATIONS]}"
         # Rename oldest directory for run
         OLDEST_DIR=$( rotate_oldest_backup )
         if [[ $OLDEST_DIR != "" ]]; then
@@ -96,7 +97,7 @@ rotate_start() {
             exit 1
         fi
     else
-        log_entry "| Found $ROT_COUNT backups out of a max of ${COUNT[MAX_ROTATIONS]}"
+        log_entry "| Found $ROT_COUNT backups out of a max of ${CONFIG[MAX_ROTATIONS]}"
         log_entry "| Creating new directory: ${CONFIG[RUNNING_DIRNAME]}"
         # Create new directory for run
         mkdir $RUN_DIR
@@ -147,6 +148,7 @@ rotate_complete_date() {
         echo "ERROR: Could not rename completed backup to: ${COMPL_DIR}"
         exit 1
     fi
+    PID_FULL=$( path_join "$COMPL_DIR" "$PID_FILE" )
     touch $COMPL_DIR
 }
 
@@ -155,7 +157,7 @@ rotate_complete_date() {
 ##  $1 -> Num of subdir
 ## Outputs the escaped full path
 rotate_subdir_num() {
-    NUM=$?
+    NUM=$1
     NUMDIR=${CONFIG[SUBDIR_NAME]/NUM[0-1]/$NUM}
     FULL_SUBDIR=$( epath_join ${CONFIG[TARGET_DIR]} ${NUMDIR} )
     echo $FULL_SUBDIR
@@ -164,7 +166,7 @@ rotate_subdir_num() {
 ###############################
 ## Having completed a running backup, rotate number based subdirectories
 rotate_complete_num() {
-    FIRST_N=$?
+    FIRST_N=$1
     LAST_N=$(( $FIRST_N + ${CONFIG[MAX_ROTATIONS]} - 1 ))
     # Attempt to locate a gap
     GAP_N=""
@@ -203,6 +205,7 @@ rotate_complete_num() {
         echo "ERROR: Could not rename directory from ${RUN_DIR} to ${FIRST_DIR}"
         exit 1
     fi
+    PID_FULL=$( path_join "$FIRST_DIR" "$PID_FILE" )
     touch $FIRST_DIR
 }
 
