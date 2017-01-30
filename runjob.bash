@@ -96,7 +96,9 @@ runjob_rotation() {
         # Get previous directory for target of link-dest, or skip if no previous backup dir
         PREV_BACKUP=$( rotate_current_backup )
         if [[ $PREV_BACKUP != "" ]]; then
-            RSYNC_FLAGS="${RSYNC_FLAGS} --link-dest=${PREV_BACKUP}"
+            log_entry "| Hard linking identical files from: $PREV_BACKUP"
+            PREV_BACKUP_PATH=$( epath_join "${CONFIG[TARGET_DIR]}" "$PREV_BACKUP" )
+            RSYNC_FLAGS="${RSYNC_FLAGS} --link-dest=${PREV_BACKUP_PATH}"
             # If using old version of rsync (prior to 3.1.0), we must manually link files from
             # the previous backup dir; version 3.1.0 and later works with just the link-dest flag above
             if ! rsync_gte_310; then
@@ -109,6 +111,7 @@ runjob_rotation() {
 
     SYNC_FROM=$( escaped_rsync_source )
     RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR} >> ${LOG_FILE} 2>&1"
+    log_entry "Running rsync: $RSYNC_COMMAND"
     eval $RSYNC_COMMAND
     RSYNC_EXIT=$?
     # Check for exit 24 and ignore
