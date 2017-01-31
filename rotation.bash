@@ -112,6 +112,7 @@ rotate_start() {
 ###############################
 ## Rotate directories after backup completes and rename running directory
 rotate_complete() {
+    #TODO add 0 padding support
     MATCH_NUM0=$( substr_index "${CONFIG[SUBDIR_NAME]}" "NUM0" )
     MATCH_DATE=$( substr_index "${CONFIG[SUBDIR_NAME]}" "DATE" )
     if [[ $MATCH_DATE != "-1" ]]; then
@@ -165,7 +166,10 @@ rotate_subdir_num() {
 
 ###############################
 ## Having completed a running backup, rotate number based subdirectories
+##  $1 -> Starting number to represent most recent backup; must be 0 or 1
+##  $2 -> Number of left-padded zeroes; default of 0
 rotate_complete_num() {
+    #TODO add 0 padding support
     FIRST_N=$1
     LAST_N=$(( $FIRST_N + ${CONFIG[MAX_ROTATIONS]} - 1 ))
     # Attempt to locate a gap

@@ -7,7 +7,7 @@
 default_config() {
     declare -g -A CONFIG
     CONFIG[LOG_DIR]=/var/log/cfgbackup/
-    CONFIG[LOG_FILENAME]=cfgbackup_DATETIME.log
+    CONFIG[LOG_FILENAME]=CONFNAME_DATE.log
     CONFIG[SOURCE_DIR]=
     CONFIG[TARGET_DIR]=
     CONFIG[RSYNC_FLAGS]=

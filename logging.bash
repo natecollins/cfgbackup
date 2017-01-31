@@ -14,9 +14,12 @@ log_can_write() {
 ## Initialize log
 ## Return 0 on success
 log_init() {
+    CONF_FILE_BASE=$( basename $CONFIG_FILE )
+    CONF_NAME=${CONF_FILE_BASE%.*}
     # Ensure dir has trailing slash
     CONFIG[LOG_DIR]=${CONFIG[LOG_DIR]%/}/
-    # Substitution for DATE and TIME
+    # Substitution for placeholders
+    CONFIG[LOG_FILENAME]=${CONFIG[LOG_FILENAME]//CONFNAME/$CONF_NAME}
     CONFIG[LOG_FILENAME]=${CONFIG[LOG_FILENAME]//DATE/$(date +%Y%m%d)}
     CONFIG[LOG_FILENAME]=${CONFIG[LOG_FILENAME]//TIME/$(date +%H%M%S)}
     # Test access to file
