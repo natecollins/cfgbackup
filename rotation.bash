@@ -112,13 +112,21 @@ rotate_start() {
 ###############################
 ## Rotate directories after backup completes and rename running directory
 rotate_complete() {
-    #TODO add 0 padding support
-    MATCH_NUM0=$( substr_index "${CONFIG[SUBDIR_NAME]}" "NUM0" )
-    MATCH_DATE=$( substr_index "${CONFIG[SUBDIR_NAME]}" "DATE" )
+    MATCH_NUM0=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "NUM0" )
+    MATCH_DATE=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "DATE" )
     if [[ $MATCH_DATE != "-1" ]]; then
         rotate_complete_date
     elif [[ $MATCH_NUM0 != "-1" ]]; then
-        rotate_complete_num "0"
+        RE0="NUM(0*)0[^01]?"
+        RE1="NUM(0+)1"
+        if [[ ${CONFIG[ROTATE_SUBDIR]} =~ $RE1 ]]; then
+            rotate_complete_num "1" ${#BASH_REMATCH[1]}
+        elif [[ ${CONFIG[ROTATE_SUBDIR]} =~ $RE0 ]]; then
+            rotate_complete_num "0" ${#BASH_REMATCH[1]}
+        else
+            echo "ERROR: Unexpected rotate directory variable name"
+            exit 1
+        fi
     else
         rotate_complete_num "1"
     fi
@@ -128,7 +136,7 @@ rotate_complete() {
 ## Having completed a running backup, rename running directory to a date based directory
 rotate_complete_date() {
     TODAY=$( date +%Y%m%d )
-    COMPL_SUB=${CONFIG[SUBDIR_NAME]/DATE/$TODAY}
+    COMPL_SUB=${CONFIG[ROTATE_SUBDIR]/DATE/$TODAY}
     COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${COMPL_SUB} )
     COMPL_EXT=0
     # Check if complete dir already exists (with some sanity limits)
@@ -156,10 +164,11 @@ rotate_complete_date() {
 ###############################
 ## Shortcut function to create an escaped fullpath for a given num dir
 ##  $1 -> Num of subdir
+##  $2 -> Number of left-padded zeroes
 ## Outputs the escaped full path
 rotate_subdir_num() {
-    NUM=$1
-    NUMDIR=${CONFIG[SUBDIR_NAME]/NUM[0-1]/$NUM}
+    NUM=$( printf "%0$(( $2 + 1 ))d" $1 )
+    NUMDIR=$( echo ${CONFIG[ROTATE_SUBDIR]} | sed "s/NUM0*[01]/$NUM/" )
     FULL_SUBDIR=$( epath_join ${CONFIG[TARGET_DIR]} ${NUMDIR} )
     echo $FULL_SUBDIR
 }
@@ -169,13 +178,13 @@ rotate_subdir_num() {
 ##  $1 -> Starting number to represent most recent backup; must be 0 or 1
 ##  $2 -> Number of left-padded zeroes; default of 0
 rotate_complete_num() {
-    #TODO add 0 padding support
     FIRST_N=$1
+    PAD=${2:-0}
     LAST_N=$(( $FIRST_N + ${CONFIG[MAX_ROTATIONS]} - 1 ))
     # Attempt to locate a gap
     GAP_N=""
     for N in $( seq $FIRST_N $LAST_N ); do
-        GAP_DIR=$( rotate_subdir_num $N )
+        GAP_DIR=$( rotate_subdir_num $N $PAD)
         if [[ ! -d $GAP_DIR ]]; then
             GAP_N=$N
             break
@@ -185,15 +194,15 @@ rotate_complete_num() {
         LAST_N=$GAP_N
     fi
     # If last directory already exists, we cannot rotate
-    LAST_DIR=$( rotate_subdir_num $LAST_N )
+    LAST_DIR=$( rotate_subdir_num $LAST_N $PAD )
     if [[ -d $LAST_DIR ]]; then
         echo "ERROR: Could not rotate due to directory already existing: ${LAST_DIR}"
         exit 1
     fi
     # Rotate directories
     for N in $( seq $(( LAST_N - 1 )) -1 $FIRST_N ); do
-        ROT_FROM=$( rotate_subdir_num $N )
-        ROT_TO=$( rotate_subdir_num $(( N + 1 )) )
+        ROT_FROM=$( rotate_subdir_num $N $PAD )
+        ROT_TO=$( rotate_subdir_num $(( N + 1 )) $PAD )
         log_entry "| Renaming: $( basename $ROT_FROM ) => $( basename $ROT_TO )"
         mv $ROT_FROM $ROT_TO
         if [[ $? -ne 0 ]]; then
@@ -202,7 +211,7 @@ rotate_complete_num() {
         fi
     done
     # Rename running dir
-    FIRST_DIR=$( rotate_subdir_num $FIRST_N )
+    FIRST_DIR=$( rotate_subdir_num $FIRST_N $PAD )
     log_entry "| Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $FIRST_DIR )"
     mv $RUN_DIR $FIRST_DIR
     if [[ $? -ne 0 ]]; then
