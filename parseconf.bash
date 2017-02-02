@@ -6,6 +6,7 @@
 ## Creates an array of config variables with default values
 default_config() {
     declare -g -A CONFIG
+    CONFIG[NOTIFY_EMAIL]=
     CONFIG[LOG_DIR]=/var/log/cfgbackup/
     CONFIG[LOG_FILENAME]=CONFNAME_DATE.log
     CONFIG[SOURCE_DIR]=

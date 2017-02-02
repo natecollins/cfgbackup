@@ -39,6 +39,9 @@ log_entry() {
 ## Get name of most recent log file for current config
 ## Prints escaped full path of file
 log_last_file() {
+    # List files can match LOG_FILENAME minus exact DATE and TIME variables
+
+    # Sort matching files and get most recent
     echo "TODO"
 }
 

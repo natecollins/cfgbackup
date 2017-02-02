@@ -123,9 +123,26 @@ runjob_rotation() {
         echo "TODO send rsync failure email"
     fi
 
+    # If ALLOW_DELETIONS or ALLOW_OVERWRITES is 0, check for skipped files
+    if [[ ${CONFIG[ALLOW_DELETIONS]} == "0" || ${CONFIG[ALLOW_OVERWRITES]} == "0" ]]; then
+        runjob_skipped_files
+    fi
+
     # Update timestamp of target dir to indicate backup time
     touch $RUN_DIR
 
     rotate_complete
 }
+
+###############################
+## Generate an email report of skipped files, and log them as well
+runjob_skipped_files() {
+    echo "TODO"
+    # If number of skipped files is too large, just list a summary count
+    #TODO
+
+    # If any files were skipped, send an email report
+    #TODO
+}
+
 
