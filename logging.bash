@@ -16,15 +16,12 @@ log_can_write() {
 log_init() {
     CONF_FILE_BASE=$( basename $CONFIG_FILE )
     CONF_NAME=${CONF_FILE_BASE%.*}
-    # Ensure dir has trailing slash
-    CONFIG[LOG_DIR]=${CONFIG[LOG_DIR]%/}/
-    # Substitution for placeholders
     CONFIG[LOG_FILENAME]=${CONFIG[LOG_FILENAME]//CONFNAME/$CONF_NAME}
-    CONFIG[LOG_FILENAME]=${CONFIG[LOG_FILENAME]//DATE/$(date +%Y%m%d)}
-    CONFIG[LOG_FILENAME]=${CONFIG[LOG_FILENAME]//TIME/$(date +%H%M%S)}
-    # Test access to file
     declare -g LOG_FILE
-    LOG_FILE=$( epath_join ${CONFIG[LOG_DIR]} ${CONFIG[LOG_FILENAME]} )
+    LOG_FILE=${CONFIG[LOG_FILENAME]//DATE/$(date +%Y%m%d)}
+    LOG_FILE=${LOG_FILE//TIME/$(date +%H%M%S)}
+    # Join path and escape
+    LOG_FILE=$( epath_join ${CONFIG[LOG_DIR]} ${LOG_FILE} )
     return $( log_can_write )
 }
 
@@ -37,11 +34,16 @@ log_entry() {
 
 ###############################
 ## Get name of most recent log file for current config
-## Prints escaped full path of file
+## Prints escaped full path of file, or empty string if no match
 log_last_file() {
-    # List files can match LOG_FILENAME minus exact DATE and TIME variables
-
-    # Sort matching files and get most recent
-    echo "TODO"
+    # List files that can match LOG_FILENAME minus exact DATE and TIME variables
+    LOG_MATCH=${CONFIG[LOG_FILENAME]//DATE/*}
+    LOG_MATCH=${LOG_MATCH//TIME/*}
+    LM_PATH=$( epath_join ${CONFIG[LOG_DIR]} )
+    LM_PATH=$( path_join $LM_PATH $LOG_MATCH )
+    # Get list of files
+    LASTLOG=( $( ls -1 $LM_PATH 2> /dev/null | tail -n 1 ) )
+    # Return last entry
+    echo $LASTLOG
 }
 
