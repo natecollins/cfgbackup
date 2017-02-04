@@ -71,6 +71,12 @@ runjob_sync() {
     SYNC_FROM=$( escaped_rsync_source )
 
     RSYNC_FLAGS="-av --stats ${CONFIG[RSYNC_FLAGS]}"
+    if [[ ${CONFIG[ALLOW_DELETIONS]} == "1" ]]; then
+        RSYNC_FLAGS="$RSYNC_FLAGS --del"
+    fi
+    if [[ ${CONFIG[ALLOW_OVERWRITES]} == "0" ]]; then
+        RSYNC_FLAGS="$RSYNC_FLAGS --ignore-existing"
+    fi
     # Exclude PID_FILE from being synced
     RSYNC_FLAGS="${RSYNC_FLAGS} --exclude=/${PID_FILE}"
 
@@ -91,6 +97,12 @@ runjob_rotation() {
     echo $$ > $PID_FULL
 
     RSYNC_FLAGS="-av --stats ${CONFIG[RSYNC_FLAGS]}"
+    if [[ ${CONFIG[ALLOW_DELETIONS]} == "1" ]]; then
+        RSYNC_FLAGS="$RSYNC_FLAGS --del"
+    fi
+    if [[ ${CONFIG[ALLOW_OVERWRITES]} == "0" ]]; then
+        RSYNC_FLAGS="$RSYNC_FLAGS --ignore-existing"
+    fi
 
     if [[ ${CONFIG[ROTATIONALS_HARD_LINK]} == "1" ]]; then
         # Get previous directory for target of link-dest, or skip if no previous backup dir
@@ -111,7 +123,7 @@ runjob_rotation() {
 
     SYNC_FROM=$( escaped_rsync_source )
     RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR} >> ${LOG_FILE} 2>&1"
-    log_entry "Running rsync: $RSYNC_COMMAND"
+    log_entry "| Running rsync: $RSYNC_COMMAND"
     eval $RSYNC_COMMAND
     RSYNC_EXIT=$?
     # Check for exit 24 and ignore
@@ -120,6 +132,7 @@ runjob_rotation() {
     fi
     # On any error, send email report
     if [[ $RSYNC_EXIT -gt 0 ]]; then
+        log_entry "| Rsync command exited with code: $RSYNC_EXIT"
         echo "TODO send rsync failure email"
     fi
 
@@ -137,9 +150,30 @@ runjob_rotation() {
 ###############################
 ## Generate an email report of skipped files, and log them as well
 runjob_skipped_files() {
-    echo "TODO"
+    RSYNC_FLAGS="-ai --dry-run --existing ${CONFIG[RSYNC_FLAGS]}"
+    if [[ ${CONFIG[ALLOW_DELETIONS]} == "0" ]]; then
+        RSYNC_FLAGS="$RSYNC_FLAGS --del"
+    fi
+    if [[ ${CONFIG[ALLOW_OVERWRITES]} == "1" ]]; then
+        RSYNC_FLAGS="$RSYNC_FLAGS --ignore-existing"
+    fi
+
+    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR} 2>&1"
+    log_entry "| Checking for skipped files..."
+    log_entry "| Running rsync: $RSYNC_COMMAND"
+    SKIP_RESULTS=( $( $RSYNC_COMMAND | tee $LOG_FILE ) )
+    RSYNC_EXIT=${PIPESTATUS[0]}
+    # On any error, send email report
+    if [[ $RSYNC_EXIT -gt 0 ]]; then
+        log_entry "| Rsync command exited with code: $RSYNC_EXIT"
+    fi
+
     # If number of skipped files is too large, just list a summary count
-    #TODO
+    if [[ ${#SKIP_RESULTS[@]} -gt 5000 ]]; then
+        #TODO email message is quick summary
+    elif [[ ${#SKIP_RESULTS[@]} -gt 0 ]]; then
+        #TODO email message lists of all files
+    fi
 
     # If any files were skipped, send an email report
     #TODO
