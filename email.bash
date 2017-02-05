@@ -18,11 +18,12 @@ mailer() {
     RECIPIENT=$1
     SUBJECT=$2
     MESSAGE=$3
-    echo -e $MESSAGE | mail -s "$SUBJECT" $RECIPIENT
+    echo -e $MESSAGE | ${CONFIG[MAIL_PATH]} -s "$SUBJECT" $RECIPIENT
 
     if [[ $? != 0 ]]; then
         # Log mail failure
-        #TODO
+        log_entry "| FAILED to send email to ${RECIPIENT}. Subject: \"$SUBJECT\""
+        echo "FAILED to send email to ${RECIPIENT}. Subject: \"$SUBJECT\""
         return 1
     fi
     return 0

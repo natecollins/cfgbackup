@@ -168,15 +168,19 @@ runjob_skipped_files() {
         log_entry "| Rsync command exited with code: $RSYNC_EXIT"
     fi
 
-    # If number of skipped files is too large, just list a summary count
     if [[ ${#SKIP_RESULTS[@]} -gt 5000 ]]; then
-        #TODO email message is quick summary
+        # If number of skipped files is too large, just list a summary count
+        SKIP_RESULTS="Skipped ${#SKIP_RESULTS[@]} files from being altered based off limitations set in the '${CONF_FILE_BASE}' config file.${NL}${NL}For specifics, see the log file at: ${LOG_FILE}${NL}"
     elif [[ ${#SKIP_RESULTS[@]} -gt 0 ]]; then
-        #TODO email message lists of all files
+        # Send list of skipped files in the email
+        SKIP_RESULTS="Skipped ${#SKIP_RESULTS[@]} files from being altered based off limitations set in the '${CONF_FILE_BASE}' config file.${NL}${NL}$( IFS=$'\n'; echo "${SKIP_RESULTS[@]}" )${NL}"
+        IFS=$' \t\n'
     fi
 
     # If any files were skipped, send an email report
-    #TODO
+    if [[ ${CONFIG[NOTIFY_EMAIL]} != "" ]]; then
+        mailer "${CONFIG[NOTIFY_EMAIL]}" "cfgbackup job '${CONFIF[NOTIFY_EMAIL]}' skipped some files" "$SKIP_RESULTS"
+    fi
 }
 
 

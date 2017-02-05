@@ -63,6 +63,9 @@ fi
 log_init
 
 # Global variables (default set for rotation)
+NL=$'\n'
+CONF_FILE_BASE=$( basename $CONFIG_FILE )
+CONF_NAME=${CONF_FILE_BASE%.*}
 PID_FILE=$( printf '%q' "${CONFIG[PID_FILE]}" )
 RUN_DIR=$( epath_join "${CONFIG[TARGET_DIR]}" "${CONFIG[RUNNING_DIRNAME]}" )
 PID_FULL=$( path_join "$RUN_DIR" "$PID_FILE" )

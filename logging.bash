@@ -14,8 +14,6 @@ log_can_write() {
 ## Initialize log
 ## Return 0 on success
 log_init() {
-    CONF_FILE_BASE=$( basename $CONFIG_FILE )
-    CONF_NAME=${CONF_FILE_BASE%.*}
     CONFIG[LOG_FILENAME]=${CONFIG[LOG_FILENAME]//CONFNAME/$CONF_NAME}
     declare -g LOG_FILE
     LOG_FILE=${CONFIG[LOG_FILENAME]//DATE/$(date +%Y%m%d)}
