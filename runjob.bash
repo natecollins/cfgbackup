@@ -12,11 +12,13 @@ command_run() {
 
     # Record run pid in target dir cfgbackup.pid file
     log_entry "JOB STARTED:  $( date +%Y-%m-%d\ %H:%M:%S )"
+    command_runscript PRE_SCRIPT
     if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
         runjob_rotation
     elif [[ ${CONFIG[BACKUP_TYPE]} == "sync" ]]; then
         runjob_sync
     fi
+    command_runscript FINAL_SCRIPT
     command_end
 }
 
@@ -27,6 +29,27 @@ command_end() {
     log_entry ""
     # Cleanup by removing cfgbackup.pid file
     rm $PID_FULL
+}
+
+###############################
+## Run given script specified by the config, or do nothing if no script was set
+## Will fail job if script returns non 0 exit code
+##  $1 -> Name of config script line to find
+command_runscript() {
+    ALLOWED_SCRIPTS=( PRE_SCRIPT SUCCESS_SCRIPT FAILED_SCRIPT FINAL_SCRIPT )
+    array_contains ALLOWED_SCRIPTS $1
+    FOUND_SCPT=$?
+    if [[ $FOUND_SCPT -eq 0 ]]; then
+        log_entry "| Running $1: ${CONFIG[$1]}"
+        SCRIPT_OUT=$( ${CONFIG[$1]} | tee $LOG_FILE )
+        SCRIPT_RET=${PIPESTATUS[0]}
+        if [[ $SCRIPT_RET -ne 0 ]]; then
+            log_entry "| Script returned exit code: $SCRIPT_RET"
+            # Send notify email about script failure
+            mailer "${CONFIG[NOTIFY_EMAIL]}" "cfgbackup job '${CONF_NAME}' failed running $1" "The $1 ( ${CONFIG[$1]} ) for job '${CONF_NAME}' failed with exit code ${SCRIPT_RET}."
+            exit 1
+        fi
+    fi
 }
 
 ###############################
@@ -83,6 +106,13 @@ runjob_sync() {
     RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR} >> ${LOG_FILE} 2>&1"
     eval $RSYNC_COMMAND
     RSYNC_EXIT=$?
+    if [[ $RSYNC_EXIT -ne 0 ]]; then
+        log_entry "| Rsync command exited with code: $RSYNC_EXIT"
+        command_runscript FAILED_SCRIPT
+        echo "TODO send rsync failure email"
+    else
+        command_runscript SUCCESS_SCRIPT
+    fi
 
     # Update timestamp of target dir to indicate backup time
     touch $SYNC_TO
@@ -133,8 +163,10 @@ runjob_rotation() {
     # On any error, send email report
     if [[ $RSYNC_EXIT -gt 0 ]]; then
         log_entry "| Rsync command exited with code: $RSYNC_EXIT"
+        command_runscript FAILED_SCRIPT
         echo "TODO send rsync failure email"
-    fi
+    else
+        command_runscript SUCCESS_SCRIPT
 
     # If ALLOW_DELETIONS or ALLOW_OVERWRITES is 0, check for skipped files
     if [[ ${CONFIG[ALLOW_DELETIONS]} == "0" || ${CONFIG[ALLOW_OVERWRITES]} == "0" ]]; then
@@ -179,7 +211,7 @@ runjob_skipped_files() {
 
     # If any files were skipped, send an email report
     if [[ ${CONFIG[NOTIFY_EMAIL]} != "" ]]; then
-        mailer "${CONFIG[NOTIFY_EMAIL]}" "cfgbackup job '${CONFIF[NOTIFY_EMAIL]}' skipped some files" "$SKIP_RESULTS"
+        mailer "${CONFIG[NOTIFY_EMAIL]}" "cfgbackup job '${CONF_NAME}' skipped some files" "$SKIP_RESULTS"
     fi
 }
 
