@@ -59,9 +59,6 @@ fi
 # Verify required tools and versions
 #TODO bash4, rsync, etc
 
-# Initialize logging
-log_init
-
 # Global variables (default set for rotation)
 NL=$'\n'
 CONF_FILE_BASE=$( basename $CONFIG_FILE )
@@ -69,11 +66,14 @@ CONF_NAME=${CONF_FILE_BASE%.*}
 PID_FILE=$( printf '%q' "${CONFIG[PID_FILE]}" )
 RUN_DIR=$( epath_join "${CONFIG[TARGET_DIR]}" "${CONFIG[RUNNING_DIRNAME]}" )
 PID_FULL=$( path_join "$RUN_DIR" "$PID_FILE" )
-# Globals (if set for sync)
+# Globals modified (if set for sync)
 if [[ ${CONFIG[BACKUP_TYPE]} == "sync" ]]; then
     RUN_DIR=$( epath_join "${CONFIG[TARGET_DIR]}" )
     PID_FULL=$( path_join "$RUN_DIR" "$PID_FILE" )
 fi
+
+# Initialize logging
+log_init
 
 # Verify command
 VALID_COMMANDS=(check status list run reset)

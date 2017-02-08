@@ -25,7 +25,7 @@ default_config() {
     CONFIG[FAILED_SCRIPT]=
     CONFIG[FINAL_SCRIPT]=
     CONFIG[RSYNC_PATH]=rsync
-    CONFIG[RSYNC_PATH]=mail
+    CONFIG[MAIL_PATH]=mail
     CONFIG[PID_FILE]=.cfgbackup.pid
 }
 
