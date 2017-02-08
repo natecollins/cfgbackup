@@ -56,7 +56,7 @@ command_runscript() {
 ## Get what version of rsync are we using
 ## Outputs the rsync verion number, e.g. 3.1.0
 rsync_version() {
-    rsync --version | head -n 1 | awk '{ print $3 }'
+    ${CONFIG[RSYNC_PATH]} --version | head -n 1 | awk '{ print $3 }'
 }
 
 ###############################
@@ -111,13 +111,7 @@ runjob_sync() {
     if [[ $RSYNC_EXIT -ne 0 ]]; then
         log_entry "| Rsync command exited with code: $RSYNC_EXIT"
         command_runscript FAILED_SCRIPT
-        if [[ ${CONFIG[NOTIFY_EMAIL]} != "" ]]; then
-            mailer "${CONFIG[NOTIFY_EMAIL]}" "cfgbackup job '${CONF_NAME}' failed with exit code $RSYNC_EXIT" "
-The rsync command used in the '${CONF_NAME}' backup job exited with code ${RSYNC_EXIT}.
-
-For more details, view the log file: $LOG_FILE
-"
-        fi
+        mailer_rsync_exit $RSYNC_EXIT
     else
         command_runscript SUCCESS_SCRIPT
     fi
@@ -152,6 +146,7 @@ runjob_rotation() {
             # If using old version of rsync (prior to 3.1.0), we must manually link files from
             # the previous backup dir; version 3.1.0 and later works with just the link-dest flag above
             if ! rsync_gte_310; then
+                log_entry "| Old version of rsync detected; manual linking required."
                 #TODO manual link from prev backups
                 echo "FAILURE: cfgbackup does not support rsync less than 3.1.0 at this time when performing rotational hard linking."
                 exit 1
@@ -173,11 +168,7 @@ runjob_rotation() {
     if [[ $RSYNC_EXIT -gt 0 ]]; then
         log_entry "| Rsync command exited with code: $RSYNC_EXIT"
         command_runscript FAILED_SCRIPT
-        mailer "${CONFIG[NOTIFY_EMAIL]}" "cfgbackup job '${CONF_NAME}' failed with exit code $RSYNC_EXIT" "
-The rsync command used in the '${CONF_NAME}' backup job exited with code ${RSYNC_EXIT}.
-
-For more details, view the log file: $LOG_FILE
-"
+        mailer_rsync_exit $RSYNC_EXIT
         return
     else
         command_runscript SUCCESS_SCRIPT
