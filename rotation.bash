@@ -157,7 +157,6 @@ rotate_complete_date() {
         echo "ERROR: Could not rename completed backup to: ${COMPL_DIR}"
         exit 1
     fi
-    PID_FULL=$( path_join "$COMPL_DIR" "$PID_FILE" )
     touch $COMPL_DIR
 }
 
@@ -218,7 +217,6 @@ rotate_complete_num() {
         echo "ERROR: Could not rename directory from ${RUN_DIR} to ${FIRST_DIR}"
         exit 1
     fi
-    PID_FULL=$( path_join "$FIRST_DIR" "$PID_FILE" )
     touch $FIRST_DIR
 }
 

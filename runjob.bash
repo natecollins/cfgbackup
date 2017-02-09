@@ -103,7 +103,7 @@ runjob_sync() {
     # Exclude PID_FILE from being synced
     RSYNC_FLAGS="${RSYNC_FLAGS} --exclude=/${PID_FILE}"
 
-    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR}"
+    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM}/ ${RUN_DIR}/"
     log_entry "| Running rsync: $RSYNC_COMMAND"
     RSYNC_COMMAND="$RSYNC_COMMAND >> ${LOG_FILE} 2>&1"
     eval $RSYNC_COMMAND
@@ -155,7 +155,7 @@ runjob_rotation() {
     fi
 
     SYNC_FROM=$( escaped_rsync_source )
-    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR}"
+    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM}/ ${RUN_DIR}/"
     log_entry "| Running rsync: $RSYNC_COMMAND"
     RSYNC_COMMAND="$RSYNC_COMMAND >> ${LOG_FILE} 2>&1"
     eval $RSYNC_COMMAND
@@ -195,25 +195,37 @@ runjob_skipped_files() {
     if [[ ${CONFIG[ALLOW_OVERWRITES]} == "1" ]]; then
         RSYNC_FLAGS="$RSYNC_FLAGS --ignore-existing"
     fi
+    # Exclude PID_FILE from being synced
+    if [[ ${CONFIG[BACKUP_TYPE]} == "sync" ]]; then
+        RSYNC_FLAGS="${RSYNC_FLAGS} --exclude=/${PID_FILE}"
+    fi
 
-    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR}"
+    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM}/ ${RUN_DIR}/"
     log_entry "| Checking for skipped files..."
     log_entry "| Running rsync: $RSYNC_COMMAND"
-    RSYNC_COMMAND="$RSYNC_COMMAND 2>&1"
-    SKIP_RESULTS=( $( $RSYNC_COMMAND | tee -a $LOG_FILE ) )
+    SKIP_RESULTS=$( $RSYNC_COMMAND | tee -a $LOG_FILE 2>&1 )
     RSYNC_EXIT=${PIPESTATUS[0]}
+    SKIP_COUNT=$( echo "$SKIP_RESULTS" | wc -l )
+
     # On any error, send email report
     if [[ $RSYNC_EXIT -gt 0 ]]; then
         log_entry "| Rsync command exited with code: $RSYNC_EXIT"
     fi
 
-    if [[ ${#SKIP_RESULTS[@]} -gt 5000 ]]; then
+    if [[ $SKIP_COUNT -gt 5000 ]]; then
         # If number of skipped files is too large, just list a summary count
-        SKIP_RESULTS="Skipped ${#SKIP_RESULTS[@]} files from being altered based off limitations set in the '${CONF_FILE_BASE}' config file.${NL}${NL}For specifics, see the log file at: ${LOG_FILE}${NL}"
-    elif [[ ${#SKIP_RESULTS[@]} -gt 0 ]]; then
+        SKIP_RESULTS="
+Skipped ${SKIP_COUNT} files from being altered based off limitations set in the '${CONF_FILE_BASE}' config file.
+
+For specifics, see the log file at:
+  ${LOG_FILE}"
+    elif [[ $SKIP_COUNT -gt 0 ]]; then
         # Send list of skipped files in the email
-        SKIP_RESULTS="Skipped ${#SKIP_RESULTS[@]} files from being altered based off limitations set in the '${CONF_FILE_BASE}' config file.${NL}${NL}$( IFS=$'\n'; echo "${SKIP_RESULTS[@]}" )${NL}"
-        IFS=$' \t\n'
+        SKIP_RESULTS="
+Skipped ${SKIP_COUNT} files from being altered based off limitations set in the '${CONF_FILE_BASE}' config file.
+
+$SKIP_RESULTS
+"
     fi
 
     # If any files were skipped, send an email report

@@ -18,7 +18,7 @@ mailer() {
     RECIPIENT=$1
     SUBJECT=$2
     MESSAGE=$3
-    echo -e $MESSAGE | ${CONFIG[MAIL_PATH]} -s "$SUBJECT" $RECIPIENT
+    echo "$MESSAGE" | ${CONFIG[MAIL_PATH]} -s "$SUBJECT" "$RECIPIENT"
 
     if [[ $? != 0 ]]; then
         # Log mail failure
@@ -37,7 +37,8 @@ mailer_rsync_exit() {
         mailer "${CONFIG[NOTIFY_EMAIL]}" "cfgbackup job '${CONF_NAME}' failed with exit code $RSYNC_EXIT" "
 The rsync command used in the '${CONF_NAME}' backup job exited with code ${RSYNC_EXIT}.
 
-For more details, view the log file: $LOG_FILE
+For more details, view the log file:
+  $LOG_FILE
 "
     fi
 }
