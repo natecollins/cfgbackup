@@ -33,6 +33,7 @@ SCRPTDIR="${BASH_SOURCE%/*}"
 . ${SCRPTDIR}/checkjob.bash
 . ${SCRPTDIR}/statusjob.bash
 . ${SCRPTDIR}/runjob.bash
+. ${SCRPTDIR}/resetjob.bash
 
 # Command help
 runhelp() {
@@ -124,7 +125,7 @@ if [[ $COMMAND == "list" ]]; then
 fi
 if [[ $COMMAND == "reset" ]]; then
     echo "TODO command_reset"
-    #TODO command_reset
+    command_reset
 fi
 
 
