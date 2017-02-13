@@ -20,15 +20,17 @@ rotate_backup_running() {
 ## Sets the results in the array: BACKUP_ROTATION_DIRS
 rotate_get_dirs() {
     declare -g -a BACKUP_ROTATION_DIRS
-    readarray BACKUP_ROTATION_DIRS < <( ls -1 ${CONFIG[TARGET_DIR]} | sort -V )
-    # Ensure running and aborted dirs are listed first
-    RUN_IDX=$( array_value_index BACKUP_ROTATION_DIRS ${CONFIG[RUNNING_DIRNAME]} )
-    if [[ $RUN_IDX != "-1" ]]; then
-        unset BACKUP_ROTATION_DIRS[$RUN_IDX]
-        BACKUP_ROTATION_DIRS=( ${CONFIG[RUNNING_DIRNAME]} "${BACKUP_ROTATION_DIRS[@]}" )
+    if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
+        readarray BACKUP_ROTATION_DIRS < <( ls -1 ${CONFIG[TARGET_DIR]} | sort -V )
+        # Ensure running and aborted dirs are listed first
+        RUN_IDX=$( array_value_index BACKUP_ROTATION_DIRS ${CONFIG[RUNNING_DIRNAME]} )
+        if [[ $RUN_IDX != "-1" ]]; then
+            unset BACKUP_ROTATION_DIRS[$RUN_IDX]
+            BACKUP_ROTATION_DIRS=( ${CONFIG[RUNNING_DIRNAME]} "${BACKUP_ROTATION_DIRS[@]}" )
+        fi
+        # Limit to MAX_ROTATIONS
+        BACKUP_ROTATION_DIRS=( "${BACKUP_ROTATION_DIRS[@]:0:${CONFIG[MAX_ROTATIONS]}}" )
     fi
-    # Limit to MAX_ROTATIONS
-    BACKUP_ROTATION_DIRS=( "${BACKUP_ROTATION_DIRS[@]:0:${CONFIG[MAX_ROTATIONS]}}" )
 }
 
 ###############################
@@ -106,6 +108,76 @@ rotate_start() {
             exit 1
         fi
         return 0
+    fi
+}
+
+###############################
+## Given a running directory, move it back to the end of rotation list
+rotate_reset() {
+    MATCH_NUM0=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "NUM0" )
+    MATCH_DATE=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "DATE" )
+    if [[ $MATCH_DATE != "-1" ]]; then
+        rotate_reset_date
+    elif [[ $MATCH_NUM0 != "-1" ]]; then
+        RE0="NUM(0*)0[^01]?"
+        RE1="NUM(0+)1"
+        if [[ ${CONFIG[ROTATE_SUBDIR]} =~ $RE1 ]]; then
+            rotate_reset_num "1" ${#BASH_REMATCH[1]}
+        elif [[ ${CONFIG[ROTATE_SUBDIR]} =~ $RE0 ]]; then
+            rotate_reset_num "0" ${#BASH_REMATCH[1]}
+        else
+            echo "ERROR: Unexpected rotate directory variable name"
+            exit 1
+        fi
+    else
+        rotate_reset_num "1"
+    fi
+}
+
+###############################
+## Given a running directory, move it back to the oldest date named rotation
+rotate_reset_date() {
+    if [[ -d "$RUN_DIR" ]]; then
+        OLDEST_DIR="${BACKUP_ROTATION_DIRS[-1]}"
+        DATE_MATCHER=${CONFIG[ROTATE_SUBDIR]/DATE/"([[:digit:]]{8})"}
+        OLDEST_DATE=${BASH_REMATCH[1]}
+        USE_DATE=$( date +%Y%m%d -d "$OLDEST_DATE +1day" )
+        RUN_DATE=$( date +%Y%m%d -r "$RUN_DIR" )
+        if [[ $RUN_DATE -gt $USE_DATE ]]; then
+            USE_DATE=$RUN_DATE
+        fi
+
+        COMPL_SUB=${CONFIG[ROTATE_SUBDIR]/DATE/$USE_DATE}
+        COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${COMPL_SUB} )
+        COMPL_EXT=0
+        # Check if complete dir already exists (with some sanity limits)
+        while [[ -d $COMPL_DIR && $COMPL_EXT -le 999 ]]; do
+            # If exists, append .1, .2, .3, etc to complete dir
+            COMPL_EXT=$(( COMPL_EXT + 1 ))
+            COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} "${COMPL_SUB}.${COMPL_EXT}" )
+        done
+        if [[ $COMPL_EXT -gt 999 ]]; then
+            echo "ERROR: Can't reset! Too many backups for single date (Max of 999): ${$USE_DATE}"
+            exit 1
+        fi
+
+        echo "Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $COMPL_DIR )"
+        # Rename to complete dir
+        mv $RUN_DIR $COMPL_DIR
+        if [[ $? -ne 0 ]]; then
+            echo "ERROR: Could not rename directory to: ${COMPL_DIR}"
+            exit 1
+        fi
+    fi
+}
+
+###############################
+## Given a running directory, move it back to the oldest number based rotation
+##  $1 -> Starting number to represent most recent backup; must be 0 or 1
+##  $2 -> Number of left-padded zeroes; default of 0
+rotate_reset_num() {
+    if [[ -d "$RUN_DIR" ]]; then
+        #TODO
     fi
 }
 

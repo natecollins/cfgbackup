@@ -59,18 +59,11 @@ reset_rmpidfile() {
 ## Does nothing for sync jobs
 ## For rotations using DATE subdir names, the dir name may not be what it was previously
 reset_mvrundir() {
-    #TODO
-    #TODO for DATE subdir:
-    #TODO   if running last modified date would be valid "oldest" rotation dir, use that as date
-    #TODO   otherwise choose oldest (excluding running) and use the day before
-    echo "Renaming $RUN_DIR to $ROTRESET_DIR"
-    #TODO
-    if [[ $? -ne 0 ]]; then
-        echo "ERROR: Failed to rename running directory"
-        exit 1
-    else
-        echo "Running dir renamed to $ROTRESET_DIR"
+    rotate_get_dirs
+    if [[ ! -d $RUN_DIR || ${#BACKUP_ROTATION_DIRS[@]} -lt 1 ]]; then
+        return
     fi
+    rotate_reset
 }
 
 ###############################
