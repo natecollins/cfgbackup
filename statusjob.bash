@@ -85,9 +85,11 @@ command_status() {
 
     echo "======= cfgbackup job status ======="
     echo "Config:               $CONFIG_FILE"
+    echo "Type:                 ${CONFIG[BACKUP_TYPE]}"
     echo "Status:               $CONFIG_STAT"
     echo "Started:              $JOB_STARTED"
     echo "Process ID:           $PID_NUM"
+    echo ""
     LAST_LOGFILE=$( log_last_file )
     if [[ ! -z $LAST_LOGFILE ]]; then
         echo "Last log messages:"
