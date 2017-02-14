@@ -124,7 +124,6 @@ if [[ $COMMAND == "list" ]]; then
     #TODO command_list
 fi
 if [[ $COMMAND == "reset" ]]; then
-    echo "TODO command_reset"
     command_reset
 fi
 

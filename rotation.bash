@@ -137,14 +137,16 @@ rotate_reset() {
 ###############################
 ## Given a running directory, move it back to the oldest date named rotation
 rotate_reset_date() {
-    if [[ -d "$RUN_DIR" ]]; then
+    if [[ -d $RUN_DIR ]]; then
         OLDEST_DIR="${BACKUP_ROTATION_DIRS[-1]}"
         DATE_MATCHER=${CONFIG[ROTATE_SUBDIR]/DATE/"([[:digit:]]{8})"}
         OLDEST_DATE=${BASH_REMATCH[1]}
-        USE_DATE=$( date +%Y%m%d -d "$OLDEST_DATE +1day" )
-        RUN_DATE=$( date +%Y%m%d -r "$RUN_DIR" )
-        if [[ $RUN_DATE -gt $USE_DATE ]]; then
-            USE_DATE=$RUN_DATE
+        USE_DATE=$( date +%Y%m%d -d "$OLDEST_DATE -1day" )
+
+        CHECK_SUB=${CONFIG[ROTATE_SUBDIR]/DATE/$USE_DATE}
+        CHECK_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${CHECK_SUB} )
+        if [[ -d $CHECK_DIR ]]; then
+            USE_DATE=$OLDEST_DATE
         fi
 
         COMPL_SUB=${CONFIG[ROTATE_SUBDIR]/DATE/$USE_DATE}
@@ -176,8 +178,19 @@ rotate_reset_date() {
 ##  $1 -> Starting number to represent most recent backup; must be 0 or 1
 ##  $2 -> Number of left-padded zeroes; default of 0
 rotate_reset_num() {
-    if [[ -d "$RUN_DIR" ]]; then
-        #TODO
+    if [[ -d $RUN_DIR ]]; then
+        MAX_NUM=$(( $1 + ${CONFIG[MAX_ROTATIONS]} - 1 ))
+        RESET_DIR=$( rotate_subdir_num $MAX_NUM $2 )
+        if [[ -d $RESET_DIR ]]; then
+            echo "ERROR: Can't reset! Final rotation dir already exists: $RESET_DIR"
+            exit 1
+        fi
+        echo "Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $RESET_DIR )"
+        mv $RUN_DIR $RESET_DIR
+        if [[ $? -ne 0 ]]; then
+            echo "ERROR: Could not rename directory to: ${RESET_DIR}"
+            exit 1
+        fi
     fi
 }
 

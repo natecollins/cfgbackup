@@ -69,6 +69,11 @@ reset_mvrundir() {
 ###############################
 ## For interactive terminals, get confirmation before killing a runnning job
 command_reset() {
+    if status_is_ready; then
+        echo "Job '$CONF_NAME' is ready and does not need to be reset."
+        exit 0
+    fi
+
     if ! reset_makeready; then
         return
     fi
@@ -79,6 +84,7 @@ command_reset() {
         echo "Job '$CONF_NAME' has been reset successfully."
     else
         echo "Job reset for '$CONF_NAME' failed!"
+        exit 1
     fi
 }
 
