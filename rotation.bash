@@ -18,8 +18,10 @@ rotate_backup_running() {
 ## Ordered by newest backups first, with running/aborted dirs considered newest
 ## If number of backups exceeds MAX_ROTATIONS, only gets MAX_ROTATIONS directories
 ## Sets the results in the array: BACKUP_ROTATION_DIRS
+## Also records directories past the max in the array: BACKUP_ROTATION_XDIRS
 rotate_get_dirs() {
     declare -g -a BACKUP_ROTATION_DIRS
+    declare -g -a BACKUP_ROTATION_XDIRS
     if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
         readarray BACKUP_ROTATION_DIRS < <( ls -1 ${CONFIG[TARGET_DIR]} | sort -V )
         # Ensure running and aborted dirs are listed first
@@ -29,6 +31,7 @@ rotate_get_dirs() {
             BACKUP_ROTATION_DIRS=( ${CONFIG[RUNNING_DIRNAME]} "${BACKUP_ROTATION_DIRS[@]}" )
         fi
         # Limit to MAX_ROTATIONS
+        BACKUP_ROTATION_XDIRS=( "${BACKUP_ROTATION_DIRS[@]:${CONFIG[MAX_ROTATIONS]}}" )
         BACKUP_ROTATION_DIRS=( "${BACKUP_ROTATION_DIRS[@]:0:${CONFIG[MAX_ROTATIONS]}}" )
     fi
 }

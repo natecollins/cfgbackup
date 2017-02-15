@@ -53,25 +53,6 @@ command_runscript() {
 }
 
 ###############################
-## Get what version of rsync are we using
-## Outputs the rsync verion number, e.g. 3.1.0
-rsync_version() {
-    ${CONFIG[RSYNC_PATH]} --version | head -n 1 | awk '{ print $3 }'
-}
-
-###############################
-## Is the rsync version at least 3.1.0
-## Returns 0 if version 3.1.0 or greater
-rsync_gte_310() {
-    RSYNC_VER=$( rsync_version )
-    RSYNC_CHECK=$( echo -e "${RSYNC_VER}\n3.1.0" | sort -V | head -n 1 )
-    if [[ $RSYNC_CHECK == "3.1.0" ]]; then
-        return 0;
-    fi
-    return 1
-}
-
-###############################
 ## Escape the rsync source path, including the user and host for remote ssh sources
 ## Output the escaped path
 escaped_rsync_source() {

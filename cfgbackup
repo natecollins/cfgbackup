@@ -53,8 +53,7 @@ runhelp() {
     echo "  status  - Print out the current status of any current job for the"
     echo "            given config. If no job is running, reports on the last"
     echo "            job that ran."
-    echo "  list    - List information about backups that have been created"
-    echo "            using the given config."
+    echo "  list    - List rotational backup subdirectories for the given conf."
     echo "  run     - Run the backup according to the config file provided."
     echo "  reset   - Resets partially completed or failed backups. This will"
     echo "            abort a currently running backup."
@@ -79,8 +78,12 @@ if [[ $? == 1 ]]; then
     exit 1
 fi
 
-# Verify required tools and versions
-#TODO bash4, rsync, tee, etc
+# Verify required tools exist and have required versions
+if ! bash_gte_430; then
+    echo "ERROR: cfgbackup requires Bash version 4.3.0 or greater."
+    exit 1
+fi
+#TODO rsync exists
 
 # Global variables (default set for rotation)
 CONF_FILE_BASE=$( basename $CONFIG_FILE )
@@ -127,4 +130,5 @@ if [[ $COMMAND == "reset" ]]; then
     command_reset
 fi
 
+exit 0
 

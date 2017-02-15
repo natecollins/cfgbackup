@@ -53,19 +53,6 @@ substr_index() {
 }
 
 ###############################
-## Trim pattern from both beginning and end of string
-##  $1 -> The string to trim from
-##  $2 -> The pattern to trim
-## Prints out the trimmed string
-str_trim() {
-    local FULLSTR="$1"
-    local PTRN="$2"
-    local TRIMSTR="${FULLSTR%%$PTRN}"
-    TRIMSTR="${TRIMSTR##$PTRN}"
-    echo $TRIMSTR
-}
-
-###############################
 ## Combine two strings into a full file/directory path
 ##  $1 -> First part of path, may not be empty
 ##  $2 -> Second part of path
@@ -95,4 +82,33 @@ epath_join() {
     printf '%q' "$P"
 }
 
+###############################
+## Get what version of rsync are we using
+## Outputs the rsync verion number, e.g. 3.1.0
+version_rsync() {
+    ${CONFIG[RSYNC_PATH]} --version | head -n 1 | awk '{ print $3 }'
+}
+
+###############################
+## Is the rsync version at least 3.1.0
+## Returns 0 if version 3.1.0 or greater
+rsync_gte_310() {
+    RSYNC_VER=$( version_rsync )
+    RSYNC_CHECK=$( echo -e "${RSYNC_VER}\n3.1.0" | sort -V | head -n 1 )
+    if [[ $RSYNC_CHECK == "3.1.0" ]]; then
+        return 0;
+    fi
+    return 1
+}
+
+###############################
+## Is the running version of bash at least 4.3.0
+## Returns 0 if version 4.3.0 or greater
+bash_gte_430() {
+    BASH_VCHECK=$( echo -e "${BASH_VERSION}\n4.3.0" | sort -V | head -n 1 )
+    if [[ $BASH_VCHECK == "4.3.0" ]]; then
+        return 0;
+    fi
+    return 1
+}
 
