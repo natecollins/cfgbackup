@@ -36,6 +36,10 @@ SCRPTDIR="${BASH_SOURCE%/*}"
 . ${SCRPTDIR}/resetjob.bash
 . ${SCRPTDIR}/listjob.bash
 
+#######################################
+# HANDLE COMMAND ARGUMENTS AND RUN
+#######################################
+
 # Command help
 runhelp() {
     echo ""
@@ -83,7 +87,16 @@ if ! bash_gte_430; then
     echo "ERROR: cfgbackup requires Bash version 4.3.0 or greater."
     exit 1
 fi
-#TODO rsync exists
+# Verify rsync is available
+if ! rsync_exists; then
+    echo "ERROR: cfgbackup requires rsync is available."
+    exit 1
+fi
+# Check for sort with version ability (gnu coreutils)
+if ! coreutils_sort; then
+    echo "ERROR: cfgbackup requires 'sort -V' support (GNU Coreutils)."
+    exit 1
+fi
 
 # Global variables (default set for rotation)
 CONF_FILE_BASE=$( basename $CONFIG_FILE )

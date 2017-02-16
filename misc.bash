@@ -1,6 +1,6 @@
-###############################
-# Misc helper functions
-###############################
+#######################################
+# HELPER FUNCTIONS
+#######################################
 
 ###############################
 ## Check if array contains a given value
@@ -83,6 +83,14 @@ epath_join() {
 }
 
 ###############################
+## Check if rsync is found
+## Returns 0 if found and executable
+rsync_exists() {
+    DUMMY=$( ${CONFIG[RSYNC_PATH]} --version 2>&1 )
+    return $?
+}
+
+###############################
 ## Get what version of rsync are we using
 ## Outputs the rsync verion number, e.g. 3.1.0
 version_rsync() {
@@ -108,6 +116,17 @@ bash_gte_430() {
     BASH_VCHECK=$( echo -e "${BASH_VERSION}\n4.3.0" | sort -V | head -n 1 )
     if [[ $BASH_VCHECK == "4.3.0" ]]; then
         return 0;
+    fi
+    return 1
+}
+
+###############################
+## Check for sort from coreutils with version sort
+## Return 0 if sort -V works
+coreutils_sort() {
+    DUMMY=$( echo | sort -V )
+    if [[ $? -eq 0 ]]; then
+        return 0
     fi
     return 1
 }

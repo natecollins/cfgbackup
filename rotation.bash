@@ -1,6 +1,6 @@
-###############################
-# Rotation Functions
-###############################
+#######################################
+# ROTATION FUNCTIONS
+#######################################
 
 ###############################
 ## Check if a backup running directory exists in the target directory
