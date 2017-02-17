@@ -127,7 +127,25 @@ runjob_rotation() {
             # If using old version of rsync (prior to 3.1.0), we must manually link files from
             # the previous backup dir; version 3.1.0 and later works with just the link-dest flag above
             if ! rsync_gte_310; then
-                log_entry "| Old version of rsync detected; manual linking required."
+                log_entry "| Old version of rsync detected; manually linking from previous rotation..."
+                pushd ${PREV_BACKUP_PATH}
+                if [[ $? -eq 0 ]]; then
+                    # Create missing directories in RUN_DIR
+                    # Compare files between PREV_BACKUP and RUN_DIR, hard link if different
+                    find . \
+                    \( \
+                        -type d -print0 | xargs -I '{}' -0 mkdir -p ${RUN_DIR}/{} \
+                        -o \
+                        -type f \
+                        \( \
+                            -exec cmp -s {} ${RUN_DIR}/{} \; \
+                            -o \
+                            ln -f {} ${RUN_DIR}/{} \
+                        \) \
+                    \)
+                    popd
+                fi
+
                 #TODO manual link from prev backups
                 echo "FAILURE: cfgbackup does not support rsync less than 3.1.0 at this time when performing rotational hard linking."
                 exit 1
