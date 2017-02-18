@@ -6,7 +6,7 @@
 ## Check if log directory is writable
 ## Return 0 if writable
 log_can_write() {
-    [[ -d ${CONFIG[LOG_DIR]} && -w ${CONFIG[LOG_DIR]} ]]
+    [[ -d ${LOG_DIR} && -w ${LOG_DIR} ]]
     return $?
 }
 
@@ -16,10 +16,14 @@ log_can_write() {
 log_init() {
     CONFIG[LOG_FILENAME]=${CONFIG[LOG_FILENAME]//CONFNAME/$CONF_NAME}
     declare -g LOG_FILE
+    declare -g LOG_DIR
     LOG_FILE=${CONFIG[LOG_FILENAME]//DATE/$(date +%Y%m%d)}
     LOG_FILE=${LOG_FILE//TIME/$(date +%H%M%S)}
+    LOG_DIR=$( epath_join ${CONFIG[LOG_DIR]} )
     # Join path and escape
     LOG_FILE=$( epath_join ${CONFIG[LOG_DIR]} ${LOG_FILE} )
+    # Attempt to create the log directory if it doesn't exist
+    mkdir -p $LOG_DIR > /dev/null 2>&1
     return $( log_can_write )
 }
 
