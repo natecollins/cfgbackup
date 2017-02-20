@@ -16,11 +16,19 @@ An easy to use file backup script where each job is based around a simple config
 * [Config Options](#config-options)
 * [More Details](#more-details)
 
+
 Requirements
 ------------------------
 - Bash Shell 4.3+
-- Rsync (3.1.0+ recommended)
+- rsync
+- awk
+- sed
 - GNU Coreutils
+
+Recommended
+------------------------
+- rsync 3.1.0+
+- hardlink
 
 
 Basic Usage
@@ -156,76 +164,26 @@ then the value will default to `/var/log/cfgbackup/`.
 LOG_DIR=/var/log
 ```
 
-# Name of file where logs should be saved to.
-# Allowed variables of CONFNAME, DATE, TIME
+```
 LOG_FILENAME=CONFNAME_DATE.log
-
-# Allow backups to delete files from target directory
-# - If set to 0, any deleted files will be reported in logs and
-#   email, but not removed from target dir
-# - If set to 1, this sets the rsync flag: --del
 ALLOW_DELETIONS=1
-
-# Allow files to be overwritten in the target directory
-# - If set to 0, any changed files will be reported in logs and
-#   email, but will not change files in existing target dir
-# - If set to 0, this sets the rsync flag: --ignore-existing
 ALLOW_OVERWRITES=1
-
-# Maximum number of backups to create if BACKUP_TYPE is rotation
-# Ignored if BACKUP_TYPE is mirror
-# When rotating old backups, the backup that is MAX_ROTATIONS old (by dir name)
-# will be reused for the next backups, even if there are older backups present
 MAX_ROTATIONS=8
-
-# Hard link files that have not changed between rotation backups
 ROTATIONALS_HARD_LINK=0
-
-# Hard link identical files within a single backup
-# This is a post-transfer process; all files will initally be copied to target dir
 IDENTICALS_HARD_LINK=0
-
-# Rotation only subdirectory name; requires rotation key of: NUM0, NUM1, or DATE
-# backup_NUM0 = numeric increment starting with 0
-# rotation-NUM1 = numeric increment starting with 1
-# backup_DATE = year month day of when backup started
-# The NUM keys can be zero padded, such as NUM00 or NUM0001
 ROTATE_SUBDIR=backup-NUM1
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# advanced settings
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-# Additional flags to add to the rsync job.
-# Standard rsync flags always used regardless: -av --stats
 RSYNC_FLAGS=
-
-# Specify full path to local rsync binary
-# By deafult, the PATH will be searched
 RSYNC_PATH=
-
-# Specify full path to local mail binary
-# By deafult, the PATH will be searched
 MAIL_PATH=
-
-# Pre-run script before backup. Pre-script must return 0 or
-# backup will not be started.
 PRE_SCRIPT=/path/to/prescript.sh
-
-# Post-run script after successful backups only
 SUCCESS_SCRIPT=/path/to/successscript.sh
-
-# Post-run script after failed backups only
 FAILED_SCRIPT=/path/to/failedscript.sh
-
-# Post-run script after all backsup (after success/failed script)
 FINAL_SCRIPT=/path/to/postscript.sh
-
-# Rotation only - name of directory used for running or incomplete backups
 RUNNING_DIRNAME=backup-running
-
-# Name of PID file which will be present in the TARGET_DIR while a job is running
 PID_FILE=.cfgbackup.pid
+SORT_PATH=
+HARDLINK_PATH=
+```
 
 
 More Details

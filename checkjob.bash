@@ -69,5 +69,13 @@ command_check() {
             exit 1
         fi
     done
+
+    # Check if hardlink is available if IDENTICALS_HARD_LINK is set
+    if [[ ${CONFIG[IDENTICALS_HARD_LINK]} == "1" ]]; then
+        if ! hardlink_exists; then
+            echo "ERROR: Option IDENTICALS_HARD_LINK is set, but hardlink binary could not be found."
+            exit 1
+        fi
+    fi
 }
 

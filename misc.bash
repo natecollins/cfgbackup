@@ -91,6 +91,14 @@ rsync_exists() {
 }
 
 ###############################
+## Check if hardlink is found
+## Returns 0 if found and executable
+hardlink_exists() {
+    DUMMY=$( ${CONFIG[HARDLINK_PATH]} --version 2>&1 )
+    return $?
+}
+
+###############################
 ## Get what version of rsync are we using
 ## Outputs the rsync verion number, e.g. 3.1.0
 version_rsync() {
@@ -102,7 +110,7 @@ version_rsync() {
 ## Returns 0 if version 3.1.0 or greater
 rsync_gte_310() {
     RSYNC_VER=$( version_rsync )
-    RSYNC_CHECK=$( echo -e "${RSYNC_VER}\n3.1.0" | sort -V | head -n 1 )
+    RSYNC_CHECK=$( echo -e "${RSYNC_VER}\n3.1.0" | ${CONFIG[SORT_PATH]} -V | head -n 1 )
     if [[ $RSYNC_CHECK == "3.1.0" ]]; then
         return 0;
     fi
@@ -113,7 +121,7 @@ rsync_gte_310() {
 ## Is the running version of bash at least 4.3.0
 ## Returns 0 if version 4.3.0 or greater
 bash_gte_430() {
-    BASH_VCHECK=$( echo -e "${BASH_VERSION}\n4.3.0" | sort -V | head -n 1 )
+    BASH_VCHECK=$( echo -e "${BASH_VERSION}\n4.3.0" | ${CONFIG[SORT_PATH]} -V | head -n 1 )
     if [[ $BASH_VCHECK == "4.3.0" ]]; then
         return 0;
     fi
@@ -124,7 +132,7 @@ bash_gte_430() {
 ## Check for sort from coreutils with version sort
 ## Return 0 if sort -V works
 coreutils_sort() {
-    DUMMY=$( echo | sort -V )
+    DUMMY=$( echo | ${CONFIG[SORT_PATH]} -V )
     if [[ $? -eq 0 ]]; then
         return 0
     fi

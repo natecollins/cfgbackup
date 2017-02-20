@@ -166,6 +166,17 @@ runjob_rotation() {
         mailer_rsync_exit $RSYNC_EXIT
         return
     else
+        if [[ ${CONFIG[IDENTICALS_HARD_LINK]} == "1" ]]; then
+            log_entry "| Attempting to hardlink identical files..."
+            if ! hardlink_exists; then
+                log_entry "| WARNING: hardlink binary not found, skipping identical file hard links"
+            else
+                HARDLINK_COMMAND="${CONFIG[HARDLINK_PATH]} -potm ${RUN_DIR}"
+                log_entry "| Running hardlink: $RSYNC_COMMAND"
+                HARDLINK_COMMAND="$HARDLINK_COMMAND >> ${LOG_FILE} 2>&1"
+                eval $HARDLINK_COMMAND
+            fi
+        fi
         command_runscript SUCCESS_SCRIPT
     fi
 

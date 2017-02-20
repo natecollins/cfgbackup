@@ -5,7 +5,7 @@
 ###############################
 ## Check if mail command exists
 mail_exists() {
-    command -v mail > /dev/null
+    command -v ${CONFIG[MAIL_PATH]} > /dev/null
     return $?
 }
 

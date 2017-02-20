@@ -24,9 +24,11 @@ default_config() {
     CONFIG[SUCCESS_SCRIPT]=
     CONFIG[FAILED_SCRIPT]=
     CONFIG[FINAL_SCRIPT]=
+    CONFIG[PID_FILE]=.cfgbackup.pid
     CONFIG[RSYNC_PATH]=rsync
     CONFIG[MAIL_PATH]=mail
-    CONFIG[PID_FILE]=.cfgbackup.pid
+    CONFIG[HARDLINK_PATH]=hardlink
+    CONFIG[SORT_PATH]=sort
 }
 
 ###############################

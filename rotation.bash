@@ -23,7 +23,7 @@ rotate_get_dirs() {
     declare -g -a BACKUP_ROTATION_DIRS
     declare -g -a BACKUP_ROTATION_XDIRS
     if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
-        readarray BACKUP_ROTATION_DIRS < <( ls -1 ${CONFIG[TARGET_DIR]} | sort -V )
+        readarray BACKUP_ROTATION_DIRS < <( ls -1 ${CONFIG[TARGET_DIR]} | ${CONFIG[SORT_PATH]} -V )
         # Ensure running and aborted dirs are listed first
         RUN_IDX=$( array_value_index BACKUP_ROTATION_DIRS ${CONFIG[RUNNING_DIRNAME]} )
         if [[ $RUN_IDX != "-1" ]]; then
