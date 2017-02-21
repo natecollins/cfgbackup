@@ -164,13 +164,24 @@ then the value will default to `/var/log/cfgbackup/`.
 LOG_DIR=/var/log
 ```
 
+`LOG_FILENAME` The name of the log file to use for a job. There are three variables
+you can use in the value:  
+- `CONFNAME` The name of the config file minus the extension. e.g. 'active' for `active.conf`
+- `DATE` The date when the job was started. e.g. `20161231`
+- `TIME` The time when the job was started. e.g. `235959`
+The default value is `CONFNAME_DATE.log`.  
 ```
-LOG_FILENAME=CONFNAME_DATE.log
+LOG_FILENAME=backup_DATETIME.log
+LOG_FILENAME=cfgb_CONFNAME.log
+```
+
+```
 ALLOW_DELETIONS=1
 ALLOW_OVERWRITES=1
 MAX_ROTATIONS=8
 ROTATIONALS_HARD_LINK=0
 IDENTICALS_HARD_LINK=0
+COMPRESS_LOGS=1
 ROTATE_SUBDIR=backup-NUM1
 RSYNC_FLAGS=
 RSYNC_PATH=
@@ -183,6 +194,7 @@ RUNNING_DIRNAME=backup-running
 PID_FILE=.cfgbackup.pid
 SORT_PATH=
 HARDLINK_PATH=
+COMPRESS_PATH=gzip
 ```
 
 

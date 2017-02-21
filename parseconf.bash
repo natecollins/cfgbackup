@@ -20,6 +20,7 @@ default_config() {
     CONFIG[MAX_ROTATIONS]=
     CONFIG[ROTATIONALS_HARD_LINK]=0
     CONFIG[IDENTICALS_HARD_LINK]=0
+    CONFIG[COMPRESS_LOGS]=1
     CONFIG[PRE_SCRIPT]=
     CONFIG[SUCCESS_SCRIPT]=
     CONFIG[FAILED_SCRIPT]=
@@ -29,6 +30,7 @@ default_config() {
     CONFIG[MAIL_PATH]=mail
     CONFIG[HARDLINK_PATH]=hardlink
     CONFIG[SORT_PATH]=sort
+    CONFIG[COMPRESS_PATH]=gzip
 }
 
 ###############################

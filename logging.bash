@@ -11,6 +11,25 @@ log_can_write() {
 }
 
 ###############################
+## Attempt to compress old logs
+log_compress() {
+    if [[ ${CONFIG[COMPRESS_LOGS]} == "1" ]]; then
+        # List files that can match LOG_FILENAME minus exact DATE and TIME variables
+        LOG_MATCH=${CONFIG[LOG_FILENAME]//DATE/*}
+        LOG_MATCH=${LOG_MATCH//TIME/*}
+        LM_PATH=$( epath_join ${CONFIG[LOG_DIR]} )
+        # Zip old log files
+        ZOUT=$( find $LM_PATH -mindepth 1 -maxdepth 1 -mtime +2 -name "${LOG_MATCH}" -exec ${CONFIG[COMPRESS_PATH]} {} \; 2>&1 )
+        ZEXIT=$?
+        if [[ $ZEXIT -ne 0 ]]; then
+            echo "ERROR: cfgbackup was unable to compress old logs; returned exit code $ZEXIT"
+            echo "Output was: $ZOUT"
+            exit 1
+        fi
+    fi
+}
+
+###############################
 ## Initialize log
 ## Return 0 on success
 log_init() {

@@ -94,7 +94,7 @@ rsync_exists() {
 ## Check if hardlink is found
 ## Returns 0 if found and executable
 hardlink_exists() {
-    DUMMY=$( ${CONFIG[HARDLINK_PATH]} --version 2>&1 )
+    DUMMY=$( ${CONFIG[HARDLINK_PATH]} -h 2>&1 )
     return $?
 }
 

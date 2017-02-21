@@ -21,7 +21,7 @@
 # SOFTWARE.
 ################################################################################
 
-VERSION=0.2.0
+VERSION=0.3.0
 
 # include files
 SCRPTDIR="${BASH_SOURCE%/*}"
@@ -81,6 +81,8 @@ if [[ $? == 1 ]]; then
     done
     exit 1
 fi
+# Do not allow config files that are writable by other
+#TODO
 
 # Verify required tools exist and have required versions
 if ! bash_gte_430; then
@@ -130,6 +132,7 @@ if [[ $COMMAND == "check" ]]; then
 fi
 if [[ $COMMAND == "run" ]]; then
     command_check
+    log_compress
     command_run
 fi
 if [[ $COMMAND == "status" ]]; then

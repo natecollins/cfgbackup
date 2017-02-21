@@ -171,7 +171,7 @@ runjob_rotation() {
             if ! hardlink_exists; then
                 log_entry "| WARNING: hardlink binary not found, skipping identical file hard links"
             else
-                HARDLINK_COMMAND="${CONFIG[HARDLINK_PATH]} -potm ${RUN_DIR}"
+                HARDLINK_COMMAND="${CONFIG[HARDLINK_PATH]} -c ${RUN_DIR}"
                 log_entry "| Running hardlink: $RSYNC_COMMAND"
                 HARDLINK_COMMAND="$HARDLINK_COMMAND >> ${LOG_FILE} 2>&1"
                 eval $HARDLINK_COMMAND
