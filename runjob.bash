@@ -53,6 +53,24 @@ command_runscript() {
 }
 
 ###############################
+## Runs a 'hardlink' process to link identical files together in the
+## running directory.
+## Does nothing if IDENTICAL_HARD_LINKS is not set.
+hardlink_identicals() {
+    if [[ ${CONFIG[IDENTICALS_HARD_LINK]} == "1" ]]; then
+        log_entry "| Attempting to hardlink identical files..."
+        if ! hardlink_exists; then
+            log_entry "| WARNING: hardlink binary not found, skipping identical file hard links"
+        else
+            HARDLINK_COMMAND="${CONFIG[HARDLINK_PATH]} -c ${RUN_DIR}"
+            log_entry "| Running hardlink: $HARDLINK_COMMAND"
+            HARDLINK_COMMAND="$HARDLINK_COMMAND >> ${LOG_FILE} 2>&1"
+            eval $HARDLINK_COMMAND
+        fi
+    fi
+}
+
+###############################
 ## Escape the rsync source path, including the user and host for remote ssh sources
 ## Output the escaped path
 escaped_rsync_source() {
@@ -94,6 +112,7 @@ runjob_sync() {
         command_runscript FAILED_SCRIPT
         mailer_rsync_exit $RSYNC_EXIT
     else
+        hardlink_identicals
         command_runscript SUCCESS_SCRIPT
     fi
 
@@ -166,17 +185,7 @@ runjob_rotation() {
         mailer_rsync_exit $RSYNC_EXIT
         return
     else
-        if [[ ${CONFIG[IDENTICALS_HARD_LINK]} == "1" ]]; then
-            log_entry "| Attempting to hardlink identical files..."
-            if ! hardlink_exists; then
-                log_entry "| WARNING: hardlink binary not found, skipping identical file hard links"
-            else
-                HARDLINK_COMMAND="${CONFIG[HARDLINK_PATH]} -c ${RUN_DIR}"
-                log_entry "| Running hardlink: $RSYNC_COMMAND"
-                HARDLINK_COMMAND="$HARDLINK_COMMAND >> ${LOG_FILE} 2>&1"
-                eval $HARDLINK_COMMAND
-            fi
-        fi
+        hardlink_identicals
         command_runscript SUCCESS_SCRIPT
     fi
 
