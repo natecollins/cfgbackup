@@ -37,7 +37,7 @@ SCRPTDIR="${BASH_SOURCE%/*}"
 . ${SCRPTDIR}/listjob.bash
 
 #######################################
-# HANDLE COMMAND ARGUMENTS AND RUN
+# HELP, GLOBALS, AND PARSE/RUN COMMANDS
 #######################################
 
 # Command help
@@ -66,90 +66,75 @@ runhelp() {
     echo ""
 }
 
-if [[ -z "$1" || $1 == "-h" || $1 == "--help" || $1 == "help" || $1 == "--version" ]]; then
+if [[ -z "$1" || $1 == "-h" || $1 == "--help" || $1 == "help" || $1 == "-V" || $1 == "--version" ]]; then
     runhelp
     exit 0
 fi
 
-# Parse Config file
+# Grab command arguments
 CONFIG_FILE=$1
-parse_config $CONFIG_FILE
-if [[ $? == 1 ]]; then
-    echo "ERROR: Could not parse config file: $1"
-    for PARSE_MSG in "${PARSE_ERRORS[@]}"; do
-        echo $PARSE_MSG
-    done
-    exit 1
-fi
-# Do not allow config files that are writable by other
-CONF_PERMS=$( stat -c %a $CONFIG_FILE)
-OWRITE=$(( ${CONF_PERMS: -1} & 2 ))
-if [[ $OWRITE -ne 0 ]]; then
-    echo "ERROR: cfgbackup does not allow world writable config files."
-    exit 1
-fi
-
-# Verify required tools exist and have required versions
-if ! bash_gte_430; then
-    echo "ERROR: cfgbackup requires Bash version 4.3.0 or greater."
-    exit 1
-fi
-# Verify rsync is available
-if ! rsync_exists; then
-    echo "ERROR: cfgbackup requires rsync is available."
-    exit 1
-fi
-# Check for sort with version ability (gnu coreutils)
-if ! coreutils_sort; then
-    echo "ERROR: cfgbackup requires 'sort -V' support (GNU Coreutils)."
-    exit 1
-fi
-
-# Global variables (default set for rotation)
-CONF_FILE_BASE=$( basename $CONFIG_FILE )
-CONF_NAME=${CONF_FILE_BASE%.*}
-PID_FILE=$( printf '%q' "${CONFIG[PID_FILE]}" )
-RUN_DIR=$( epath_join "${CONFIG[TARGET_DIR]}" "${CONFIG[RUNNING_DIRNAME]}" )
-PID_FULL=$( epath_join "${CONFIG[TARGET_DIR]}" "$PID_FILE" )
-# Globals modified (if set for sync)
-if [[ ${CONFIG[BACKUP_TYPE]} == "sync" ]]; then
-    RUN_DIR=$( epath_join "${CONFIG[TARGET_DIR]}" )
-    PID_FULL=$( path_join "$RUN_DIR" "$PID_FILE" )
-fi
-
-# Initialize logging
-log_init
-
-# Verify command
-VALID_COMMANDS=(check status list run reset)
-array_contains VALID_COMMANDS $2
-if [[ $? != 0 ]]; then
-    runhelp
-    echo "ERROR: Invalid command given: $2"
-    exit 1
-fi
 COMMAND=$2
 
-# Run commands
-if [[ $COMMAND == "check" ]]; then
-    command_check
-    echo "Config is OK."
-fi
-if [[ $COMMAND == "run" ]]; then
-    command_check
-    log_compress
-    command_run
-fi
-if [[ $COMMAND == "status" ]]; then
-    command_check
-    command_status
-fi
-if [[ $COMMAND == "list" ]]; then
-    command_list
-fi
-if [[ $COMMAND == "reset" ]]; then
-    command_reset
-fi
+###############################
+## Declare global variables
+globals_init() {
+    declare -g CONF_FILE_BASE
+    declare -g CONF_NAME
+    declare -g PID_FILE
+    declare -g RUN_DIR
+    declare -g PID_FULL
+    CONF_FILE_BASE=$( basename $CONFIG_FILE )
+    CONF_NAME=${CONF_FILE_BASE%.*}
+    PID_FILE=$( printf '%q' "${CONFIG[PID_FILE]}" )
+    # Globals for rotation job
+    RUN_DIR=$( epath_join "${CONFIG[TARGET_DIR]}" "${CONFIG[RUNNING_DIRNAME]}" )
+    PID_FULL=$( epath_join "${CONFIG[TARGET_DIR]}" "$PID_FILE" )
+    # Globals for sync job
+    if [[ ${CONFIG[BACKUP_TYPE]} == "sync" ]]; then
+        RUN_DIR=$( epath_join "${CONFIG[TARGET_DIR]}" )
+        PID_FULL=$( path_join "$RUN_DIR" "$PID_FILE" )
+    fi
+}
 
-exit 0
+###############################
+## Validate the command given and select the appropriate action to perform
+select_command() {
+    # Validate command
+    VALID_COMMANDS=(check status list run reset)
+    array_contains VALID_COMMANDS $COMMAND
+    if [[ $? != 0 ]]; then
+        runhelp
+        echo "ERROR: Invalid command given: $COMMAND"
+        exit 1
+    fi
+
+    # Run commands
+    if [[ $COMMAND == "check" ]]; then
+        command_check
+        echo "Config is OK."
+    fi
+    if [[ $COMMAND == "run" ]]; then
+        command_check
+        log_compress
+        command_run
+    fi
+    if [[ $COMMAND == "status" ]]; then
+        command_check
+        command_status
+    fi
+    if [[ $COMMAND == "list" ]]; then
+        command_list
+    fi
+    if [[ $COMMAND == "reset" ]]; then
+        command_reset
+    fi
+}
+
+###############################
+## cfgbackup starts here
+parse_config
+precheck_requirements
+globals_init
+log_init
+select_command
 

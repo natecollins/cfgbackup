@@ -47,9 +47,8 @@ config_param_get() {
 ## Returns 0 on success, 1 on error
 ## Any errors will be in PARSE_ERRORS
 parse_config() {
-    declare -g -a PARSE_ERRORS
+    declare -a PARSE_ERRORS
     default_config
-    CONFIG_FILE=$1
 
     # Verify config file exists and is readable
     if [[ ! -f $CONFIG_FILE || ! -r $CONFIG_FILE ]]; then
@@ -92,8 +91,11 @@ parse_config() {
     fi
 
     if [[ ${#PARSE_ERRORS[@]} -ne 0 ]]; then
-        return 1
+        echo "ERROR: Could not parse config file: $CONFIG_FILE"
+        for PARSE_MSG in "${PARSE_ERRORS[@]}"; do
+            echo $PARSE_MSG
+        done
+        exit 1
     fi
-    return 0
 }
 

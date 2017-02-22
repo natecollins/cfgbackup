@@ -3,6 +3,35 @@
 #######################################
 
 ###############################
+## Perform check for required commands and settings
+## Will end script with exit code 1 if a requirement is not met
+precheck_requirements() {
+    # Do not allow config files that are writable by other
+    CONF_PERMS=$( stat -c %a $CONFIG_FILE)
+    OWRITE=$(( ${CONF_PERMS: -1} & 2 ))
+    if [[ $OWRITE -ne 0 ]]; then
+        echo "ERROR: cfgbackup does not allow world writable config files."
+        exit 1
+    fi
+
+    # Verify required tools exist and have required versions
+    if ! bash_gte_430; then
+        echo "ERROR: cfgbackup requires Bash version 4.3.0 or greater."
+        exit 1
+    fi
+    # Verify rsync is available
+    if ! rsync_exists; then
+        echo "ERROR: cfgbackup requires rsync is available."
+        exit 1
+    fi
+    # Check for sort with version ability (gnu coreutils)
+    if ! coreutils_sort; then
+        echo "ERROR: cfgbackup requires 'sort -V' support (GNU Coreutils)."
+        exit 1
+    fi
+}
+
+###############################
 ## Check if array contains a given value
 ##  $1 -> Name of array to search
 ##  $2 -> Value to find
