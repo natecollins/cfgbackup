@@ -82,7 +82,12 @@ if [[ $? == 1 ]]; then
     exit 1
 fi
 # Do not allow config files that are writable by other
-#TODO
+CONF_PERMS=$( stat -c %a $CONFIG_FILE)
+OWRITE=$(( ${CONF_PERMS: -1} & 2 ))
+if [[ $OWRITE -ne 0 ]]; then
+    echo "ERROR: cfgbackup does not allow world writable config files."
+    exit 1
+fi
 
 # Verify required tools exist and have required versions
 if ! bash_gte_430; then

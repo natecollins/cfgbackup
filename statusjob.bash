@@ -53,10 +53,10 @@ status_is_dead() {
 }
 
 ###############################
-## Check if the backup did not complete, but exited cleanly
-## Returns 0 if running directory exists and there is no pid file; 1 otherwise
+## Check if the backup did not complete, but exited cleanly.
+## Returns 0 if running directory exists and there is no pid file; always returns 1 for sync jobs
 status_is_failed() {
-    if [[ -d $RUN_DIR && ! -f $PID_FULL ]]; then
+    if [[ ${CONFIG[BACKUP_TYPE]} != "sync" && -d $RUN_DIR && ! -f $PID_FULL ]]; then
         return 0;
     fi
     return 1

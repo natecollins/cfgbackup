@@ -74,8 +74,8 @@ parse_config() {
         if [[ ${CONFIG[TARGET_DIR]} == "" ]]; then
             PARSE_ERRORS+=("Missing required value for TARGET_DIR.")
         fi
-        if [[ ${CONFIG[BACKUP_TYPE]} == "" ]]; then
-            PARSE_ERRORS+=("Missing required value for BACKUP_TYPE.")
+        if ! [[ ${CONFIG[BACKUP_TYPE]} == "sync" ||  ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
+            PARSE_ERRORS+=("Invalid value for BACKUP_TYPE; must be sync or rotation.")
         fi
         if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" && ( ! ${CONFIG[MAX_ROTATIONS]} =~ ^[0-9]+$ || ${CONFIG[MAX_ROTATIONS]} -lt 2 ) ]]; then
             PARSE_ERRORS+=("Value of MAX_ROTATIONS must be an integer greater than 1 for rotation backups.")

@@ -98,7 +98,7 @@ runjob_sync() {
     fi
 
     # Update timestamp of target dir to indicate backup time
-    touch $SYNC_TO
+    touch $RUN_DIR
 }
 
 ###############################

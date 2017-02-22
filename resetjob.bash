@@ -59,11 +59,13 @@ reset_rmpidfile() {
 ## Does nothing for sync jobs
 ## For rotations using DATE subdir names, the dir name may not be what it was previously
 reset_mvrundir() {
-    rotate_get_dirs
-    if [[ ! -d $RUN_DIR || ${#BACKUP_ROTATION_DIRS[@]} -lt 1 ]]; then
-        return
+    if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
+        rotate_get_dirs
+        if [[ ! -d $RUN_DIR || ${#BACKUP_ROTATION_DIRS[@]} -lt 1 ]]; then
+            return
+        fi
+        rotate_reset
     fi
-    rotate_reset
 }
 
 ###############################
