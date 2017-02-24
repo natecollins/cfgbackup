@@ -41,8 +41,8 @@ command_runscript() {
     FOUND_SCPT=$?
     if [[ $FOUND_SCPT -eq 0 && ! -z ${CONFIG[$1]} ]]; then
         log_entry "| Running $1: ${CONFIG[$1]}"
-        SCRIPT_OUT=$( ${CONFIG[$1]} |& tee -a $LOG_FILE )
-        SCRIPT_RET=${PIPESTATUS[0]}
+        SCRIPT_OUT=$( ${CONFIG[$1]} >> $LOG_FILE 2>&1 )
+        SCRIPT_RET=$?
         if [[ $SCRIPT_RET -ne 0 ]]; then
             log_entry "| Script returned exit code: $SCRIPT_RET"
             # Send notify email about script failure
