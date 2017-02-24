@@ -41,7 +41,7 @@ command_runscript() {
     FOUND_SCPT=$?
     if [[ $FOUND_SCPT -eq 0 && ! -z ${CONFIG[$1]} ]]; then
         log_entry "| Running $1: ${CONFIG[$1]}"
-        SCRIPT_OUT=$( ${CONFIG[$1]} | tee -a $LOG_FILE )
+        SCRIPT_OUT=$( ${CONFIG[$1]} |& tee -a $LOG_FILE )
         SCRIPT_RET=${PIPESTATUS[0]}
         if [[ $SCRIPT_RET -ne 0 ]]; then
             log_entry "| Script returned exit code: $SCRIPT_RET"
@@ -59,13 +59,12 @@ command_runscript() {
 hardlink_identicals() {
     if [[ ${CONFIG[IDENTICALS_HARD_LINK]} == "1" ]]; then
         log_entry "| Attempting to hardlink identical files..."
-        if ! hardlink_exists; then
-            log_entry "| WARNING: hardlink binary not found, skipping identical file hard links"
-        else
-            HARDLINK_COMMAND="${CONFIG[HARDLINK_PATH]} -c ${RUN_DIR}"
-            log_entry "| Running hardlink: $HARDLINK_COMMAND"
-            HARDLINK_COMMAND="$HARDLINK_COMMAND >> ${LOG_FILE} 2>&1"
-            eval $HARDLINK_COMMAND
+        HARDLINK_COMMAND="${CONFIG[HARDLINK_PATH]} -c ${RUN_DIR}"
+        log_entry "| Running command: $HARDLINK_COMMAND"
+        HARDLINK_COMMAND="$HARDLINK_COMMAND >> ${LOG_FILE} 2>&1"
+        HARDLINK_RET=$?
+        if [[ $HARDLINK_RET -ne 0 ]]; then
+            log_entry "| Hardlink command returned exit code: $HARDLINK_RET"
         fi
     fi
 }
