@@ -1,15 +1,14 @@
 CFGBACKUP - Simple File Backups
 ========================================
 An easy to use file backup script where each job is based around a simple config file.  
- - All backups are just files in directories, no special tools for recovery
- - Very few dependencies - only standard open source tools, like Bash and rsync
- - Does rotational backups or simple syncing
- - Greatly reduce disk usage by hard linking files between rotationals
- - Email notifications on failure
- - Optional notification on file change/delete attempts
- - Pull backup source remotely over SSH
- - Customizable rotational directory names
- - And much more!
+- All backups are just files in directories, no special tools for recovery
+- Does rotational backups or simple syncing
+- Hard link unchanged files between rotational backups
+- Hard link identical files with a single backup
+- Email notifications on failure
+- Very few dependencies - only standard open source tools, like Bash and rsync
+- Detailed logging
+- Very customizable
 
 * [Requirements](#requirements)
 * [Basic Usage](#basic-usage)
@@ -307,23 +306,49 @@ SORT_PATH=/usr/local/bin/gsort
 More Details
 ------------------------
 **Be Careful with Hard Links**  
-TODO
+Hard linking files is great for reducing the disk spaces used; you can have dozens of files hard linked
+together and the data for all those files will take up the same disk space as the data for a single
+copy. This because they all point to the same location on disk.  
+
+If you are hard linking files between rotationals (via `ROTATIONALS_HARD_LINK`), you need to be aware
+that you should never edit/modify a hard linked file in one backup, as it will result in ALL hard linked
+copies being edited.  
+
+If you are hard linking identical files within a backup (via `IDENTICALS_HARD_LINK`), all those files
+will have end up with the same timestamps, ownership, and permissions. While this is not an concern when
+when dealing with rotation hard links, when you hard link files within the same backup, you may be
+discarding some useful metadata. If only the content of the files is relevant to you, then this will be
+of no concern. However, if timestamps, ownership, or file permissions are important, then you may not
+want to enable `IDENTICALS_HARD_LINKS`.  
 
 **Manually Reseting a Job**  
-TODO  
+While the simplest way to fix a failed/dead job is to use the `reset` command, you can also manually
+reset a job. To reset a job:  
+ - Ensure the cfgbackup and and child processes are killed
+ - Remove the `PID_FILE` from the `TARGET_DIR`
+ - For rotationals, rename the `RUNNING_DIRNAME` back to be the oldest backup of your `MAX_ROTATIONS`
 
 
-Example Configs
+Solutions
 ------------------------
 Following are a number of situations and how you could solve them. A large number
 of problems can be solved via use the the `RSYNC_FLAGS` option, as rsync is quite
 powerful.  
 
 **Only allow new files; no changes/deletions**  
-TODO
+To prevent file changes and deletions, and then have cfgbackup email you a report of prevented
+changes/deletions to `NOTIFY_EMAIL`, just set the following two options:
+```
+ALLOW_DELETIONS=0
+ALLOW_OVERWRITES=0
+```
 
 **SSH on non-standard port**  
-TODO
+To change which SSH port rsync will use, you must manually set the remote shell using
+the `-e` flag. For example, to set SSH to use port 345, you would need the following:  
+```
+RSYNC_FLAGS=-e "ssh -p 345"
+```
 
 **Backing up source directories that already contain hard links**  
 This one is quite simple. The rsync program supports syncing hard links,
@@ -366,6 +391,7 @@ but all can get the job done.
   - Homebrew: `https://brew.sh/` Well polished and very popular amongst developers; targets individual user functionality rather than system wide use.
   - MacPorts: `https://www.macports.org/` Similarities to BSD ports package manager.
   - Fink: `http://www.finkproject.org/` Similarities to Debian apt package manager.
+
 
 TODO  
 
