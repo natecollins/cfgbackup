@@ -1,0 +1,116 @@
+#!/bin/bash
+
+###############################
+## Parse a value for a given config line
+##  $1 -> File to search
+##  $2 -> Name of parameter to get value for
+## Prints the string value, or empty string if not found
+config_param_get() {
+    grep -E "^ *$2 *=" $1 | tail -n 1 | cut -d= -f2- | sed 's/ *$//' | sed 's/^ *//'
+}
+
+###############################
+# Get Builder Info
+while [[ -z $PKGBLD_NAME ]]; do
+    echo "Enter your name (first and last):"
+    read PKGBLD_NAME
+done
+
+while [[ -z $PKGBLD_EMAIL ]]; do
+    echo "Enter your email contact:"
+    read PKGBLD_EMAIL
+done
+
+echo
+echo "Name:  $PKGBLD_NAME"
+echo "Email: $PKGBLD_EMAIL"
+read -p "Is this correct (y/n)? " CONFIRM_PRMPT
+if [[ $CONFIRM_PRMPT != "y" ]]; then
+    echo "Re-run build script to try again."
+    exit 0
+fi
+
+###############################
+# Build Base
+BUILD_DIR=$( dirname ${BASH_SOURCE[0]} )
+cd "$BUILD_DIR"
+BUILD_DIR=$( pwd )
+DIST_DIR="${BUILD_DIR}/dist-deb"
+echo "Build dir: $BUILD_DIR"
+echo "Dist dir:  $DIST_DIR"
+VERSION=$( config_param_get "$BUILD_DIR/cfgbackup" "VERSION" )
+mkdir -p "$DIST_DIR"
+
+###############################
+# File: debian-binary
+echo "2.0\n" > "$DIST_DIR/debian-binary"
+
+###############################
+# File: data.tar.gz
+mkdir -p "$DIST_DIR/data"
+mkdir -p "$DIST_DIR/data/usr/bin"
+cp "$BUILD_DIR/cfgbackup" "$DIST_DIR/data/usr/bin"
+mkdir -p "$DIST_DIR/data/usr/share/doc/cfgbackup"
+cp "$BUILD_DIR/example.conf" "$DIST_DIR/data/usr/share/doc/cfgbackup"
+cp "$BUILD_DIR/README.md" "$DIST_DIR/data/usr/share/doc/cfgbackup"
+cat > "$DIST_DIR/data/usr/share/doc/cfgbackup/copyright" <<- EOM
+This package was assembled by $PKGBLD_NAME <$PKGBLD_EMAIL>
+on $( date ).
+
+Original Source code from: https://github.com/natecollins/cfgbackup/
+
+Author: Nathan Collins <npcollins@gmail.com>
+
+Copyright: Copyright (C) 2017 Nathan Collins <npcollins@gmail.com>
+
+License: MIT
+
+EOM
+cat "$BUILD_DIR/LICENSE" >> "$DIST_DIR/data/usr/share/doc/cfgbackup/copyright"
+mkdir -p "$DIST_DIR/data/usr/share/man/man1/"
+cp "$BUILD_DIR/man1/cfgbackup.1" "$DIST_DIR/data/usr/share/man/man1/cfgbackup.1"
+gzip -f "$DIST_DIR/data/usr/share/man/man1/cfgbackup.1"
+cd "$DIST_DIR/data"
+tar -czvf ../data.tar.gz ./
+cd "$BUILD_DIR"
+
+###############################
+# File: control.tar.gz
+mkdir -p "$DIST_DIR/control"
+cd "$DIST_DIR/data"
+find ./ -type f -exec md5sum {} \; > "$DIST_DIR/control/md5sum"
+cd "$BUILD_DIR"
+cat > "$DIST_DIR/control/control" <<- EOM
+Package: cfgbackup
+Version: $VERSION
+Architecture: all
+Maintainer: $PKGBLD_NAME <$PKGBLD_EMAIL>
+Installed-Size: $(( ($( wc -c < "$BUILD_DIR/cfgbackup" ) + 1023) / 1024 ))
+Depends: bash (>= 4.3.0), rsync (>= 2.6.9), coreutils, sed, awk, hardlink
+Recommends: rsync (>= 3.1.0), mail-transport-agent
+Section: utils
+Priority: optional
+Homepage: https://github.com/natecollins/cfgbackup/
+Description: Backup tool for rotationals and syncing of files
+ cfgbackup is a tool for performing file backups, both rotationals and syncing
+ two directories. Options are set in a config files for each job, with plenty
+ of options for customizing each backup.
+EOM
+cd "$DIST_DIR/control"
+tar -czvf ../control.tar.gz ./
+cd "$BUILD_DIR"
+
+###############################
+# Create deb archive
+cd "$DIST_DIR"
+ar r cfgbackup-${VERSION}.deb debian-binary data.tar.gz control.tar.gz
+cd "$BUILD_DIR"
+
+###############################
+# Clean up files
+rm -r "$DIST_DIR/data"
+rm -r "$DIST_DIR/control"
+rm "$DIST_DIR/control.tar.gz"
+rm "$DIST_DIR/data.tar.gz"
+rm "$DIST_DIR/debian-binary"
+

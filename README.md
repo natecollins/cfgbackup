@@ -29,7 +29,6 @@ Recommended
 - rsync 3.1.0+
 - hardlink
 
-
 Basic Usage
 ------------------------
 There are two basic types of backup jobs `cfgbackup` can do: sync and rotation  
