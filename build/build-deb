@@ -46,7 +46,7 @@ mkdir -p "$DIST_DIR"
 
 ###############################
 # File: debian-binary
-echo "2.0\n" > "$DIST_DIR/debian-binary"
+echo -n -e "2.0\n" > "$DIST_DIR/debian-binary"
 
 ###############################
 # File: data.tar.gz
@@ -112,7 +112,7 @@ cd "$BUILD_DIR"
 # Create deb archive
 DEB_FILE="cfgbackup-${VERSION}.deb"
 cd "$DIST_DIR"
-ar r "$DEB_FILE" debian-binary data.tar.gz control.tar.gz
+ar r "$DEB_FILE" debian-binary control.tar.gz data.tar.gz
 cd "$BUILD_DIR"
 
 ###############################
