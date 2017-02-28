@@ -297,7 +297,7 @@ used by switching the binary.
 RSYNC_PATH=/usr/local/bin/rsync
 COMPRESS_PATH=bzip2
 HARDLINK_PATH=/usr/local/bin/hardlink
-MAIL_PATH=/usr/bin/mailx
+MAIL_PATH=/usr/local/bin/mail
 SORT_PATH=/usr/local/bin/gsort
 ```
 
@@ -390,7 +390,6 @@ but all can get the job done.
   - Homebrew: `https://brew.sh/` Well polished and very popular amongst developers; targets individual user functionality rather than system wide use.
   - MacPorts: `https://www.macports.org/` Similarities to BSD ports package manager.
   - Fink: `http://www.finkproject.org/` Similarities to Debian apt package manager.
-
 
 TODO  
 

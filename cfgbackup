@@ -23,21 +23,1272 @@
 
 VERSION=0.3.0
 
-# include files
-SCRPTDIR="${BASH_SOURCE%/*}"
-. ${SCRPTDIR}/misc.bash
-. ${SCRPTDIR}/email.bash
-. ${SCRPTDIR}/logging.bash
-. ${SCRPTDIR}/rotation.bash
-. ${SCRPTDIR}/parseconf.bash
-. ${SCRPTDIR}/checkjob.bash
-. ${SCRPTDIR}/statusjob.bash
-. ${SCRPTDIR}/runjob.bash
-. ${SCRPTDIR}/resetjob.bash
-. ${SCRPTDIR}/listjob.bash
+#######################################
+# MISC HELPER FUNCTIONS
+#######################################
+
+###############################
+## Perform check for required commands and settings
+## Will end script with exit code 1 if a requirement is not met
+precheck_requirements() {
+    # Do not allow config files that are writable by other
+    CONF_PERMS=$( stat -c %a $CONFIG_FILE)
+    OWRITE=$(( ${CONF_PERMS: -1} & 2 ))
+    if [[ $OWRITE -ne 0 ]]; then
+        echo "ERROR: cfgbackup does not allow world writable config files."
+        exit 1
+    fi
+
+    # Verify required tools exist and have required versions
+    if ! bash_gte_430; then
+        echo "ERROR: cfgbackup requires Bash version 4.3.0 or greater."
+        exit 1
+    fi
+    # Verify rsync is available
+    if ! rsync_exists; then
+        echo "ERROR: cfgbackup requires rsync is available."
+        exit 1
+    fi
+    # Check for sort with version ability (gnu coreutils)
+    if ! coreutils_sort; then
+        echo "ERROR: cfgbackup requires 'sort -V' support (GNU Coreutils)."
+        exit 1
+    fi
+}
+
+###############################
+## Check if array contains a given value
+##  $1 -> Name of array to search
+##  $2 -> Value to find
+## Returns 0 if an element matches the value to find
+array_contains() {
+    local ARRNAME=$1[@]
+    local HAYSTACK=( ${!ARRNAME} )
+    local NEEDLE="$2"
+    for VAL in "${HAYSTACK[@]}"; do
+        if [[ $NEEDLE == $VAL ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+###############################
+## Get the index of matched value from an indexed array
+##  $1 -> Name of array to search
+##  $2 -> Value to find
+## Prints the index of matching value; prints -1 if value not found
+array_value_index() {
+    local ARRNAME=$1[@]
+    local HAYSTACK=( ${!ARRNAME} )
+    local NEEDLE="$2"
+    for KEY in "${!HAYSTACK[@]}"; do
+        if [[ $NEEDLE == ${HAYSTACK[$KEY]} ]]; then
+            echo $KEY
+            return
+        fi
+    done
+    echo -1
+}
+
+###############################
+## Get the index of a matching substring within a string
+##  $1 -> String to search
+##  $2 -> Substring to match
+## Prints the index of matching substring; prints -1 if not found
+substr_index() {
+    local HAYSTACK="$1"
+    local NEEDLE="$2"
+    local PREMATCH="${HAYSTACK%%$NEEDLE*}"
+    if [[ $PREMATCH != $HAYSTACK ]]; then
+        echo ${#PREMATCH}
+    fi
+    echo -1
+}
+
+###############################
+## Combine two strings into a full file/directory path
+##  $1 -> First part of path, may not be empty
+##  $2 -> Second part of path
+## Returns the combined path, with no trailing slash
+path_join() {
+    if [[ $1 == "" ]]; then
+        echo "ERROR: Cannot path_join empty string."
+        exit 1
+    fi
+    PATH1="${1%/}"
+    PATH2="${2%/}"
+    PATH2="${PATH2#/}"
+    if [[ $PATH2 != "" ]]; then
+        PATH2="/${PATH2}"
+    fi
+    echo "${PATH1}${PATH2}"
+}
+
+###############################
+## Combine two strings into a full file/directory path, and
+## escapes the resulting string for use in a command
+##  $1 -> First part of path, may not be empty
+##  $2 -> Second part of path
+## Returns the combined path, with no trailing slash, escaped
+epath_join() {
+    P=$( path_join "$1" "$2" )
+    printf '%q' "$P"
+}
+
+###############################
+## Check if rsync is found
+## Returns 0 if found and executable
+rsync_exists() {
+    DUMMY=$( ${CONFIG[RSYNC_PATH]} --version 2>&1 )
+    return $?
+}
+
+###############################
+## Check if hardlink is found
+## Returns 0 if found and executable
+hardlink_exists() {
+    DUMMY=$( ${CONFIG[HARDLINK_PATH]} -h 2>&1 )
+    return $?
+}
+
+###############################
+## Get what version of rsync are we using
+## Outputs the rsync verion number, e.g. 3.1.0
+version_rsync() {
+    ${CONFIG[RSYNC_PATH]} --version | head -n 1 | awk '{ print $3 }'
+}
+
+###############################
+## Is the rsync version at least 3.1.0
+## Returns 0 if version 3.1.0 or greater
+rsync_gte_310() {
+    RSYNC_VER=$( version_rsync )
+    RSYNC_CHECK=$( echo -e "${RSYNC_VER}\n3.1.0" | ${CONFIG[SORT_PATH]} -V | head -n 1 )
+    if [[ $RSYNC_CHECK == "3.1.0" ]]; then
+        return 0;
+    fi
+    return 1
+}
+
+###############################
+## Is the running version of bash at least 4.3.0
+## Returns 0 if version 4.3.0 or greater
+bash_gte_430() {
+    BASH_VCHECK=$( echo -e "${BASH_VERSION}\n4.3.0" | ${CONFIG[SORT_PATH]} -V | head -n 1 )
+    if [[ $BASH_VCHECK == "4.3.0" ]]; then
+        return 0;
+    fi
+    return 1
+}
+
+###############################
+## Check for sort from coreutils with version sort
+## Return 0 if sort -V works
+coreutils_sort() {
+    DUMMY=$( echo | ${CONFIG[SORT_PATH]} -V )
+    if [[ $? -eq 0 ]]; then
+        return 0
+    fi
+    return 1
+}
 
 #######################################
-# HELP, GLOBALS, AND PARSE/RUN COMMANDS
+# EMAIL FUNCTIONS
+#######################################
+
+###############################
+## Check if mail command exists
+mail_exists() {
+    command -v ${CONFIG[MAIL_PATH]} > /dev/null
+    return $?
+}
+
+###############################
+## Attempt to send an email
+##  $1 -> Recipient address
+##  $2 -> Subject
+##  $3 -> Message
+mailer() {
+    RECIPIENT=$1
+    SUBJECT=$2
+    MESSAGE=$3
+    echo "$MESSAGE" | ${CONFIG[MAIL_PATH]} -s "$SUBJECT" "$RECIPIENT"
+
+    if [[ $? != 0 ]]; then
+        # Log mail failure
+        log_entry "| FAILED to send email to ${RECIPIENT}. Subject: \"$SUBJECT\""
+        echo "FAILED to send email to ${RECIPIENT}. Subject: \"$SUBJECT\""
+        return 1
+    fi
+    return 0
+}
+
+###############################
+## Attempt to send an failure notifcation about rsync exit code
+##  $1 -> The rsync exit code
+mailer_rsync_exit() {
+    if [[ ${CONFIG[NOTIFY_EMAIL]} != "" ]]; then
+        mailer "${CONFIG[NOTIFY_EMAIL]}" "cfgbackup job '${CONF_NAME}' failed with exit code $RSYNC_EXIT" "
+The rsync command used in the '${CONF_NAME}' backup job exited with code ${RSYNC_EXIT}.
+
+For more details, view the log file:
+  $LOG_FILE
+"
+    fi
+}
+
+#######################################
+# LOGGING FUNCTIONS
+#######################################
+
+###############################
+## Check if log directory is writable
+## Return 0 if writable
+log_can_write() {
+    [[ -d ${LOG_DIR} && -w ${LOG_DIR} ]]
+    return $?
+}
+
+###############################
+## Attempt to compress old logs
+log_compress() {
+    if [[ ${CONFIG[COMPRESS_LOGS]} == "1" ]]; then
+        # List files that can match LOG_FILENAME minus exact DATE and TIME variables
+        LOG_MATCH=${CONFIG[LOG_FILENAME]//DATE/*}
+        LOG_MATCH=${LOG_MATCH//TIME/*}
+        LM_PATH=$( epath_join ${CONFIG[LOG_DIR]} )
+        # Zip old log files
+        ZOUT=$( find $LM_PATH -mindepth 1 -maxdepth 1 -mtime +2 -name "${LOG_MATCH}" -exec ${CONFIG[COMPRESS_PATH]} {} \; 2>&1 )
+        ZEXIT=$?
+        if [[ $ZEXIT -ne 0 ]]; then
+            echo "ERROR: cfgbackup was unable to compress old logs; returned exit code $ZEXIT"
+            echo "Output was: $ZOUT"
+            exit 1
+        fi
+    fi
+}
+
+###############################
+## Initialize log
+## Return 0 on success
+log_init() {
+    CONFIG[LOG_FILENAME]=${CONFIG[LOG_FILENAME]//CONFNAME/$CONF_NAME}
+    declare -g LOG_FILE
+    declare -g LOG_DIR
+    LOG_FILE=${CONFIG[LOG_FILENAME]//DATE/$(date +%Y%m%d)}
+    LOG_FILE=${LOG_FILE//TIME/$(date +%H%M%S)}
+    LOG_DIR=$( epath_join ${CONFIG[LOG_DIR]} )
+    # Join path and escape
+    LOG_FILE=$( epath_join ${CONFIG[LOG_DIR]} ${LOG_FILE} )
+    # Attempt to create the log directory if it doesn't exist
+    mkdir -p $LOG_DIR > /dev/null 2>&1
+    return $( log_can_write )
+}
+
+###############################
+## Create a logfile entry
+##  $1 -> Log message entry
+log_entry() {
+    echo "$1" >> $LOG_FILE
+}
+
+###############################
+## Get name of most recent log file for current config
+## Prints escaped full path of file, or empty string if no match
+log_last_file() {
+    # List files that can match LOG_FILENAME minus exact DATE and TIME variables
+    LOG_MATCH=${CONFIG[LOG_FILENAME]//DATE/*}
+    LOG_MATCH=${LOG_MATCH//TIME/*}
+    LM_PATH=$( epath_join ${CONFIG[LOG_DIR]} )
+    LM_PATH=$( path_join $LM_PATH $LOG_MATCH )
+    # Get list of files
+    LASTLOG=( $( ls -1 $LM_PATH 2> /dev/null | tail -n 1 ) )
+    # Return last entry
+    echo $LASTLOG
+}
+
+#######################################
+# PARSE CONFIG FILE
+#######################################
+
+###############################
+## Creates an array of config variables with default values
+default_config() {
+    declare -g -A CONFIG
+    CONFIG[NOTIFY_EMAIL]=
+    CONFIG[LOG_DIR]=/var/log/cfgbackup/
+    CONFIG[LOG_FILENAME]=CONFNAME_DATE.log
+    CONFIG[SOURCE_DIR]=
+    CONFIG[TARGET_DIR]=
+    CONFIG[RSYNC_FLAGS]=
+    CONFIG[BACKUP_TYPE]=
+    CONFIG[ROTATE_SUBDIR]=backup-NUM1
+    CONFIG[RUNNING_DIRNAME]=backup-running
+    CONFIG[ALLOW_DELETIONS]=1
+    CONFIG[ALLOW_OVERWRITES]=1
+    CONFIG[MAX_ROTATIONS]=
+    CONFIG[ROTATIONALS_HARD_LINK]=0
+    CONFIG[IDENTICALS_HARD_LINK]=0
+    CONFIG[COMPRESS_LOGS]=1
+    CONFIG[PRE_SCRIPT]=
+    CONFIG[SUCCESS_SCRIPT]=
+    CONFIG[FAILED_SCRIPT]=
+    CONFIG[FINAL_SCRIPT]=
+    CONFIG[PID_FILE]=.cfgbackup.pid
+    CONFIG[RSYNC_PATH]=rsync
+    CONFIG[MAIL_PATH]=mail
+    CONFIG[HARDLINK_PATH]=hardlink
+    CONFIG[SORT_PATH]=sort
+    CONFIG[COMPRESS_PATH]=gzip
+}
+
+###############################
+## Parse a value for a given config line
+##  $1 -> File to search
+##  $2 -> Name of parameter to get value for
+## Prints the string value, or empty string if not found
+config_param_get() {
+    grep -E "^ *$2 *=" $1 | tail -n 1 | cut -d= -f2- | sed 's/ *$//' | sed 's/^ *//'
+}
+
+###############################
+## Parse config file given
+## Returns 0 on success, 1 on error
+## Any errors will be in PARSE_ERRORS
+parse_config() {
+    declare -a PARSE_ERRORS
+    default_config
+
+    # Verify config file exists and is readable
+    if [[ ! -f $CONFIG_FILE || ! -r $CONFIG_FILE ]]; then
+        PARSE_ERRORS+=("Config file doesn't exist or isn't readable.")
+    else
+        # Parse config file for variables
+        for KEY in "${!CONFIG[@]}"; do
+            # Get variable values from config file
+            CONFIG_VALUE=$(config_param_get $CONFIG_FILE $KEY)
+            # If value is empty, leave as default
+            if [[ $CONFIG_VALUE == "" ]]; then
+                CONFIG_VALUE=${CONFIG[$KEY]}
+            fi
+            # Update CONFIG values
+            CONFIG[$KEY]=$CONFIG_VALUE
+        done
+
+        # Ensure SOURCE_DIR, TARGET_DIR, and BACKUP_TYPE are set
+        if [[ ${CONFIG[SOURCE_DIR]} == "" ]]; then
+            PARSE_ERRORS+=("Missing required value for SOURCE_DIR.")
+        fi
+        if [[ ${CONFIG[TARGET_DIR]} == "" ]]; then
+            PARSE_ERRORS+=("Missing required value for TARGET_DIR.")
+        fi
+        if ! [[ ${CONFIG[BACKUP_TYPE]} == "sync" ||  ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
+            PARSE_ERRORS+=("Invalid value for BACKUP_TYPE; must be sync or rotation.")
+        fi
+        if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" && ( ! ${CONFIG[MAX_ROTATIONS]} =~ ^[0-9]+$ || ${CONFIG[MAX_ROTATIONS]} -lt 2 ) ]]; then
+            PARSE_ERRORS+=("Value of MAX_ROTATIONS must be an integer greater than 1 for rotation backups.")
+        fi
+        # Ensure ROTATE_SUBDIR is valid
+        if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
+            MATCH_NUM0=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "NUM0" )
+            MATCH_NUM1=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "NUM1" )
+            MATCH_DATE=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "DATE" )
+            if [[ $MATCH_NUM0 -eq "-1" && $MATCH_NUM1 -eq "-1" && $MATCH_DATE -eq "-1" ]]; then
+                PARSE_ERRORS+=("No valid rotation key in ROTATE_SUBDIR. Must include one of: NUM0, NUM1, or DATE")
+            fi
+        fi
+    fi
+
+    if [[ ${#PARSE_ERRORS[@]} -ne 0 ]]; then
+        echo "ERROR: Could not parse config file: $CONFIG_FILE"
+        for PARSE_MSG in "${PARSE_ERRORS[@]}"; do
+            echo $PARSE_MSG
+        done
+        exit 1
+    fi
+}
+
+#######################################
+# ROTATION FUNCTIONS
+#######################################
+
+###############################
+## Check if a backup running directory exists in the target directory
+## Returns 0 if RUNNING_DIRNAME exists, 1 otherwise
+rotate_backup_running() {
+    CHECK_RUN=$( path_join "${CONFIG[TARGET_DIR]}" "${CONFIG[RUNNING_DIRNAME]}" )
+    if [[ -d $CHECK_RUN ]]; then
+        return 0
+    fi
+    return 1
+}
+
+###############################
+## Get list of current backup directories, including active and aborted dirs
+## Ordered by newest backups first, with running/aborted dirs considered newest
+## If number of backups exceeds MAX_ROTATIONS, only gets MAX_ROTATIONS directories
+## Sets the results in the array: BACKUP_ROTATION_DIRS
+## Also records directories past the max in the array: BACKUP_ROTATION_XDIRS
+rotate_get_dirs() {
+    declare -g -a BACKUP_ROTATION_DIRS
+    declare -g -a BACKUP_ROTATION_XDIRS
+    if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
+        readarray BACKUP_ROTATION_DIRS < <( ls -1 ${CONFIG[TARGET_DIR]} | ${CONFIG[SORT_PATH]} -V )
+        # Ensure running and aborted dirs are listed first
+        RUN_IDX=$( array_value_index BACKUP_ROTATION_DIRS ${CONFIG[RUNNING_DIRNAME]} )
+        if [[ $RUN_IDX != "-1" ]]; then
+            unset BACKUP_ROTATION_DIRS[$RUN_IDX]
+            BACKUP_ROTATION_DIRS=( ${CONFIG[RUNNING_DIRNAME]} "${BACKUP_ROTATION_DIRS[@]}" )
+        fi
+        # Limit to MAX_ROTATIONS
+        BACKUP_ROTATION_XDIRS=( "${BACKUP_ROTATION_DIRS[@]:${CONFIG[MAX_ROTATIONS]}}" )
+        BACKUP_ROTATION_DIRS=( "${BACKUP_ROTATION_DIRS[@]:0:${CONFIG[MAX_ROTATIONS]}}" )
+    fi
+}
+
+###############################
+## Print the number of backups in target directory, including running/aborted
+## If number of backups exceeds MAX_ROTATIONS, returns MAX_ROTATIONS instead
+rotate_backup_count() {
+    rotate_get_dirs
+    echo ${#BACKUP_ROTATION_DIRS[@]}
+}
+
+###############################
+## Get the name of the most recent non-running rotation directory
+## Outputs the directory name, or nothing if no prior backups exist
+rotate_current_backup() {
+    BACKUP_COUNT=$( rotate_backup_count )
+    RECENT_ROT=
+    if [[ $BACKUP_COUNT -gt 0 ]]; then
+        if [[ ${BACKUP_ROTATION_DIRS[0]} != ${CONFIG[RUNNING_DIRNAME]} ]]; then
+            RECENT_ROT=${BACKUP_ROTATION_DIRS[0]}
+        elif [[ $BACKUP_COUNT -gt 1 ]]; then
+            RECENT_ROT=${BACKUP_ROTATION_DIRS[1]}
+        fi
+    fi
+    echo "$RECENT_ROT"
+}
+
+###############################
+## Outputs the name of the oldest backup directory that is not older than MAX_ROTATIONS
+rotate_oldest_backup() {
+    BACKUP_COUNT=$( rotate_backup_count )
+    if [[ $BACKUP_COUNT -gt 0 ]]; then
+        echo ${BACKUP_ROTATION_DIRS[-1]}
+    fi
+}
+
+###############################
+## Create/rename directory to begin new backup
+## Exits script with code 1 on failure
+## Returns 0 on new empty run dir created, returns 1 on re-using oldest backup dir
+rotate_start() {
+    rotate_get_dirs
+    ROT_COUNT=$( rotate_backup_count )
+    # Check for active directory
+    if [[ ${BACKUP_ROTATION_DIRS[0]} == ${CONFIG[RUNNING_DIRNAME]} ]]; then
+        echo "ERROR: Running backup directory already exists: ${CONFIG[RUNNING_DIRNAME]}"
+        exit 1
+    fi
+
+    # Check if at rotation max
+    if [[ $ROT_COUNT -eq ${CONFIG[MAX_ROTATIONS]} ]]; then
+        log_entry "| At maximum rotation count of ${CONFIG[MAX_ROTATIONS]}"
+        # Rename oldest directory for run
+        OLDEST_DIR=$( rotate_oldest_backup )
+        if [[ $OLDEST_DIR != "" ]]; then
+            log_entry "| Renaming: $OLDEST_DIR => ${CONFIG[RUNNING_DIRNAME]}"
+            PREV_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${OLDEST_DIR} )
+            mv $PREV_DIR $RUN_DIR
+            if [[ $? -ne 0 ]]; then
+                echo "ERROR: Could not rotate directory: ${OLDEST_DIR}"
+                exit 1
+            fi
+            return 1
+        else
+            # One of those "shouldn't be possible" situations
+            echo "ERROR: Failed to find old directory to rotate."
+            exit 1
+        fi
+    else
+        log_entry "| Found $ROT_COUNT backups out of a max of ${CONFIG[MAX_ROTATIONS]}"
+        log_entry "| Creating new directory: ${CONFIG[RUNNING_DIRNAME]}"
+        # Create new directory for run
+        mkdir $RUN_DIR
+        if [[ $? -ne 0 ]]; then
+            echo "ERROR: Could not create new rotate directory: ${OLDEST_DIR}"
+            exit 1
+        fi
+        return 0
+    fi
+}
+
+###############################
+## Given a running directory, move it back to the end of rotation list
+rotate_reset() {
+    MATCH_NUM0=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "NUM0" )
+    MATCH_DATE=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "DATE" )
+    if [[ $MATCH_DATE != "-1" ]]; then
+        rotate_reset_date
+    elif [[ $MATCH_NUM0 != "-1" ]]; then
+        RE0="NUM(0*)0[^01]?"
+        RE1="NUM(0+)1"
+        if [[ ${CONFIG[ROTATE_SUBDIR]} =~ $RE1 ]]; then
+            rotate_reset_num "1" ${#BASH_REMATCH[1]}
+        elif [[ ${CONFIG[ROTATE_SUBDIR]} =~ $RE0 ]]; then
+            rotate_reset_num "0" ${#BASH_REMATCH[1]}
+        else
+            echo "ERROR: Unexpected rotate directory variable name"
+            exit 1
+        fi
+    else
+        rotate_reset_num "1"
+    fi
+}
+
+###############################
+## Given a running directory, move it back to the oldest date named rotation
+rotate_reset_date() {
+    if [[ -d $RUN_DIR ]]; then
+        OLDEST_DIR="${BACKUP_ROTATION_DIRS[-1]}"
+        DATE_MATCHER=${CONFIG[ROTATE_SUBDIR]/DATE/"([[:digit:]]{8})"}
+        OLDEST_DATE=${BASH_REMATCH[1]}
+        USE_DATE=$( date +%Y%m%d -d "$OLDEST_DATE -1day" )
+
+        CHECK_SUB=${CONFIG[ROTATE_SUBDIR]/DATE/$USE_DATE}
+        CHECK_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${CHECK_SUB} )
+        if [[ -d $CHECK_DIR ]]; then
+            USE_DATE=$OLDEST_DATE
+        fi
+
+        COMPL_SUB=${CONFIG[ROTATE_SUBDIR]/DATE/$USE_DATE}
+        COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${COMPL_SUB} )
+        COMPL_EXT=0
+        # Check if complete dir already exists (with some sanity limits)
+        while [[ -d $COMPL_DIR && $COMPL_EXT -le 999 ]]; do
+            # If exists, append .1, .2, .3, etc to complete dir
+            COMPL_EXT=$(( COMPL_EXT + 1 ))
+            COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} "${COMPL_SUB}.${COMPL_EXT}" )
+        done
+        if [[ $COMPL_EXT -gt 999 ]]; then
+            echo "ERROR: Can't reset! Too many backups for single date (Max of 999): ${$USE_DATE}"
+            exit 1
+        fi
+
+        echo "Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $COMPL_DIR )"
+        # Rename to complete dir
+        mv $RUN_DIR $COMPL_DIR
+        if [[ $? -ne 0 ]]; then
+            echo "ERROR: Could not rename directory to: ${COMPL_DIR}"
+            exit 1
+        fi
+    fi
+}
+
+###############################
+## Given a running directory, move it back to the oldest number based rotation
+##  $1 -> Starting number to represent most recent backup; must be 0 or 1
+##  $2 -> Number of left-padded zeroes; default of 0
+rotate_reset_num() {
+    if [[ -d $RUN_DIR ]]; then
+        MAX_NUM=$(( $1 + ${CONFIG[MAX_ROTATIONS]} - 1 ))
+        RESET_DIR=$( rotate_subdir_num $MAX_NUM $2 )
+        if [[ -d $RESET_DIR ]]; then
+            echo "ERROR: Can't reset! Final rotation dir already exists: $RESET_DIR"
+            exit 1
+        fi
+        echo "Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $RESET_DIR )"
+        mv $RUN_DIR $RESET_DIR
+        if [[ $? -ne 0 ]]; then
+            echo "ERROR: Could not rename directory to: ${RESET_DIR}"
+            exit 1
+        fi
+    fi
+}
+
+###############################
+## Rotate directories after backup completes and rename running directory
+rotate_complete() {
+    MATCH_NUM0=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "NUM0" )
+    MATCH_DATE=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "DATE" )
+    if [[ $MATCH_DATE != "-1" ]]; then
+        rotate_complete_date
+    elif [[ $MATCH_NUM0 != "-1" ]]; then
+        RE0="NUM(0*)0[^01]?"
+        RE1="NUM(0+)1"
+        if [[ ${CONFIG[ROTATE_SUBDIR]} =~ $RE1 ]]; then
+            rotate_complete_num "1" ${#BASH_REMATCH[1]}
+        elif [[ ${CONFIG[ROTATE_SUBDIR]} =~ $RE0 ]]; then
+            rotate_complete_num "0" ${#BASH_REMATCH[1]}
+        else
+            echo "ERROR: Unexpected rotate directory variable name"
+            exit 1
+        fi
+    else
+        rotate_complete_num "1"
+    fi
+}
+
+###############################
+## Having completed a running backup, rename running directory to a date based directory
+rotate_complete_date() {
+    TODAY=$( date +%Y%m%d )
+    COMPL_SUB=${CONFIG[ROTATE_SUBDIR]/DATE/$TODAY}
+    COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${COMPL_SUB} )
+    COMPL_EXT=0
+    # Check if complete dir already exists (with some sanity limits)
+    while [[ -d $COMPL_DIR && $COMPL_EXT -le 999 ]]; do
+        # If exists, append .1, .2, .3, etc to complete dir
+        COMPL_EXT=$(( COMPL_EXT + 1 ))
+        COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} "${COMPL_SUB}.${COMPL_EXT}" )
+    done
+    # Too many backups!
+    if [[ $COMPL_EXT -gt 999 ]]; then
+        echo "ERROR: Too many backups for single date (Max of 999): ${TODAY}"
+        exit 1
+    fi
+    log_entry "| Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $COMPL_DIR )"
+    # Rename to complete dir
+    mv $RUN_DIR $COMPL_DIR
+    if [[ $? -ne 0 ]]; then
+        echo "ERROR: Could not rename completed backup to: ${COMPL_DIR}"
+        exit 1
+    fi
+    touch $COMPL_DIR
+}
+
+###############################
+## Shortcut function to create an escaped fullpath for a given num dir
+##  $1 -> Num of subdir
+##  $2 -> Number of left-padded zeroes
+## Outputs the escaped full path
+rotate_subdir_num() {
+    NUM=$( printf "%0$(( $2 + 1 ))d" $1 )
+    NUMDIR=$( echo ${CONFIG[ROTATE_SUBDIR]} | sed "s/NUM0*[01]/$NUM/" )
+    FULL_SUBDIR=$( epath_join ${CONFIG[TARGET_DIR]} ${NUMDIR} )
+    echo $FULL_SUBDIR
+}
+
+###############################
+## Having completed a running backup, rotate number based subdirectories
+##  $1 -> Starting number to represent most recent backup; must be 0 or 1
+##  $2 -> Number of left-padded zeroes; default of 0
+rotate_complete_num() {
+    FIRST_N=$1
+    PAD=${2:-0}
+    LAST_N=$(( $FIRST_N + ${CONFIG[MAX_ROTATIONS]} - 1 ))
+    # Attempt to locate a gap
+    GAP_N=""
+    for N in $( seq $FIRST_N $LAST_N ); do
+        GAP_DIR=$( rotate_subdir_num $N $PAD)
+        if [[ ! -d $GAP_DIR ]]; then
+            GAP_N=$N
+            break
+        fi
+    done
+    if [[ $GAP_N != "" ]]; then
+        LAST_N=$GAP_N
+    fi
+    # If last directory already exists, we cannot rotate
+    LAST_DIR=$( rotate_subdir_num $LAST_N $PAD )
+    if [[ -d $LAST_DIR ]]; then
+        echo "ERROR: Could not rotate due to directory already existing: ${LAST_DIR}"
+        exit 1
+    fi
+    # Rotate directories
+    for N in $( seq $(( LAST_N - 1 )) -1 $FIRST_N ); do
+        ROT_FROM=$( rotate_subdir_num $N $PAD )
+        ROT_TO=$( rotate_subdir_num $(( N + 1 )) $PAD )
+        log_entry "| Renaming: $( basename $ROT_FROM ) => $( basename $ROT_TO )"
+        mv $ROT_FROM $ROT_TO
+        if [[ $? -ne 0 ]]; then
+            echo "ERROR: Failed to rotate directory from ${ROT_FROM} to ${ROT_TO}"
+            exit 1
+        fi
+    done
+    # Rename running dir
+    FIRST_DIR=$( rotate_subdir_num $FIRST_N $PAD )
+    log_entry "| Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $FIRST_DIR )"
+    mv $RUN_DIR $FIRST_DIR
+    if [[ $? -ne 0 ]]; then
+        echo "ERROR: Could not rename directory from ${RUN_DIR} to ${FIRST_DIR}"
+        exit 1
+    fi
+    touch $FIRST_DIR
+}
+
+#######################################
+# CHECK CONFIG FILE OPTIONS
+#######################################
+
+###############################
+## Check if source directory is remote
+## Return 0 if remote; 1 otherwise
+source_is_remote() {
+    local COLON_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" ":" )
+    local SLASH_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" "/" )
+    if [[ $COLON_IDX -ge "0" && $COLON_IDX -lt $SLASH_IDX ]]; then
+        return 0
+    fi
+    return 1
+}
+
+###############################
+## Run checks on config and access
+command_check() {
+    # Test log access
+    log_can_write
+    if [[ $? != 0 ]]; then
+        echo "ERROR: Cannot write to log directory of ${CONFIG[LOG_DIR]}"
+        exit 1
+    fi
+
+    # Test source access
+    source_is_remote
+    if [[ $? == 0 ]]; then
+        local COLON_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" ":" )+1
+        local SSH_CONNECT=${CONFIG[SOURCE_DIR]:0:$COLON_IDX}
+        local SSH_SOURCE=${CONFIG[SOURCE_DIR]:1+$COLON_IDX}
+        # Check SSH connection
+        ssh -o BatchMode=yes $SSH_CONNECT exit 0
+        if [[ $? != 0 ]]; then
+            echo "ERROR: Could not connect via SSH to ${SSH_CONNECT}"
+            exit 1
+        fi
+
+        # Check remote directory
+        ssh -o BatchMode=yes $SSH_CONNECT [[ ! -d $SSH_SOURCE || ! -r $SSH_SOURCE ]]
+        if [[ $? != 0 ]]; then
+            echo "ERROR: Cannot read from remote source directory of ${SSH_SOURCE}"
+            exit 1
+        fi
+    else
+        # Check local directory
+        if [[ ! -d ${CONFIG[SOURCE_DIR]} || ! -r ${CONFIG[SOURCE_DIR]} ]]; then
+            echo "ERROR: Cannot read from local source directory of ${CONFIG[SOURCE_DIR]}"
+            exit 1
+        fi
+    fi
+
+    # Test target access
+    if [[ ! -d ${CONFIG[TARGET_DIR]} || ! -w ${CONFIG[TARGET_DIR]} ]]; then
+        echo "ERROR: Cannot write to target directory of ${CONFIG[TARGET_DIR]}"
+        exit 1
+    fi
+
+    # Check if hardlink is available if IDENTICALS_HARD_LINK is set
+    if [[ ${CONFIG[IDENTICALS_HARD_LINK]} == "1" ]]; then
+        if ! hardlink_exists; then
+            echo "ERROR: Option IDENTICALS_HARD_LINK is set, but hardlink binary could not be found."
+            exit 1
+        fi
+    fi
+}
+
+#######################################
+# STATUS COMMAND
+#######################################
+
+###############################
+## Check if the config is not busy
+## Returns 1 if running, failed, or has uncleanly died, 0 otherwise
+status_is_ready() {
+    if status_is_running || status_is_failed || status_is_dead; then
+        return 1
+    fi
+    return 0
+}
+
+###############################
+## Check if the config is busy
+## Returns 0 if running, failed, or has uncleanly died, 1 otherwise
+status_is_busy() {
+    if status_is_running || status_is_failed || status_is_dead; then
+        return 0
+    fi
+    return 1
+}
+
+###############################
+## Check if the backup is successfully running
+## Returns 0 if job is running and a pid file exists and a process with matching pid exists, 1 otherwise
+status_is_running() {
+    if [[ -d $RUN_DIR && -f $PID_FULL ]]; then
+        PID=$( cat $PID_FULL )
+        ps -p $PID > /dev/null
+        PID_FOUND=$?
+        if [[ $PID_FOUND -eq 0 ]]; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+###############################
+## Check if the backup did not complete and exited uncleanly
+## Returns 0 if running directory exists and pid file exists without any matching process for that pid; 1 otherwise
+status_is_dead() {
+    if [[ -d $RUN_DIR && -f $PID_FULL ]]; then
+        PID=$( cat $PID_FULL )
+        ps -p $PID > /dev/null
+        PID_FOUND=$?
+        if [[ $PID_FOUND -ne 0 ]]; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+###############################
+## Check if the backup did not complete, but exited cleanly.
+## Returns 0 if running directory exists and there is no pid file; always returns 1 for sync jobs
+status_is_failed() {
+    if [[ ${CONFIG[BACKUP_TYPE]} != "sync" && -d $RUN_DIR && ! -f $PID_FULL ]]; then
+        return 0;
+    fi
+    return 1
+}
+
+###############################
+## Run status report
+command_status() {
+    CONFIG_STAT="idle"
+    if status_is_running; then
+        CONFIG_STAT="running"
+    elif status_is_failed; then
+        CONFIG_FILE="failed - see log"
+    elif status_is_dead; then
+        CONFIG_FILE="process died uncleanly"
+    fi
+
+    JOB_STARTED="-"
+    if [[ -f $PID_FULL ]]; then
+        JOB_STARTED=$( date -r $PID_FULL +%Y-%m-%d\ %H:%M:%S )
+    fi
+    PID_NUM="-"
+    if status_is_running; then
+        PID_NUM=$( cat $PID_FULL )
+    fi
+
+    echo "======= cfgbackup job status ======="
+    echo "Config:               $CONFIG_FILE"
+    echo "Type:                 ${CONFIG[BACKUP_TYPE]}"
+    echo "Status:               $CONFIG_STAT"
+    echo "Started:              $JOB_STARTED"
+    echo "Process ID:           $PID_NUM"
+    echo ""
+    LAST_LOGFILE=$( log_last_file )
+    if [[ ! -z $LAST_LOGFILE ]]; then
+        echo "Last log messages:"
+        tail -n 4 $( log_last_file )
+    fi
+}
+
+#######################################
+# RUN COMMAND
+#######################################
+
+###############################
+## Run backup job
+command_run() {
+    if status_is_busy; then
+        echo "ERROR: Cannot start new backup job if previous job is not completed."
+        exit 1
+    fi
+
+    # Record run pid in target dir cfgbackup.pid file
+    log_entry "JOB STARTED:  $( date +%Y-%m-%d\ %H:%M:%S )"
+    command_runscript PRE_SCRIPT
+    if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
+        runjob_rotation
+    elif [[ ${CONFIG[BACKUP_TYPE]} == "sync" ]]; then
+        runjob_sync
+    fi
+    command_runscript FINAL_SCRIPT
+    command_end
+}
+
+###############################
+## End job and clean up the pid file
+command_end() {
+    log_entry "JOB ENDED: $( date +%Y-%m-%d\ %H:%M:%S )"
+    log_entry ""
+    # Cleanup by removing cfgbackup.pid file
+    rm $PID_FULL
+}
+
+###############################
+## Run given script specified by the config, or do nothing if no script was set
+## Will fail job if script returns non 0 exit code
+##  $1 -> Name of config script line to find
+command_runscript() {
+    ALLOWED_SCRIPTS=( PRE_SCRIPT SUCCESS_SCRIPT FAILED_SCRIPT FINAL_SCRIPT )
+    array_contains ALLOWED_SCRIPTS $1
+    FOUND_SCPT=$?
+    if [[ $FOUND_SCPT -eq 0 && ! -z ${CONFIG[$1]} ]]; then
+        log_entry "| Running $1: ${CONFIG[$1]}"
+        SCRIPT_OUT=$( ${CONFIG[$1]} >> $LOG_FILE 2>&1 )
+        SCRIPT_RET=$?
+        if [[ $SCRIPT_RET -ne 0 ]]; then
+            log_entry "| Script returned exit code: $SCRIPT_RET"
+            # Send notify email about script failure
+            mailer "${CONFIG[NOTIFY_EMAIL]}" "cfgbackup job '${CONF_NAME}' failed running $1" "The $1 ( ${CONFIG[$1]} ) for job '${CONF_NAME}' failed with exit code ${SCRIPT_RET}."
+            exit 1
+        fi
+    fi
+}
+
+###############################
+## Runs a 'hardlink' process to link identical files together in the
+## running directory.
+## Does nothing if IDENTICAL_HARD_LINKS is not set.
+hardlink_identicals() {
+    if [[ ${CONFIG[IDENTICALS_HARD_LINK]} == "1" ]]; then
+        log_entry "| Attempting to hardlink identical files..."
+        HARDLINK_COMMAND="${CONFIG[HARDLINK_PATH]} -c ${RUN_DIR}"
+        log_entry "| Running command: $HARDLINK_COMMAND"
+        HARDLINK_COMMAND="$HARDLINK_COMMAND >> ${LOG_FILE} 2>&1"
+        HARDLINK_RET=$?
+        if [[ $HARDLINK_RET -ne 0 ]]; then
+            log_entry "| Hardlink command returned exit code: $HARDLINK_RET"
+        fi
+    fi
+}
+
+###############################
+## Escape the rsync source path, including the user and host for remote ssh sources
+## Output the escaped path
+escaped_rsync_source() {
+    ESCPATH=$( epath_join ${CONFIG[SOURCE_DIR]} )
+    source_is_remote
+    if [[ $? == 0 ]]; then
+        local COLON_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" ":" )+1
+        local SSH_CONNECT=${CONFIG[SOURCE_DIR]:0:$COLON_IDX}
+        local SSH_SOURCE=${CONFIG[SOURCE_DIR]:1+$COLON_IDX}
+        ESCPATH="${SSH_CONNECT}:\"$( epath_join "$SSH_SOURCE" )\""
+    fi
+    echo "$ESCPATH"
+}
+
+###############################
+## Run a sync job
+runjob_sync() {
+    echo $$ > $PID_FULL
+    log_entry "| Job type: sync"
+    SYNC_FROM=$( escaped_rsync_source )
+
+    RSYNC_FLAGS="-av --stats ${CONFIG[RSYNC_FLAGS]}"
+    if [[ ${CONFIG[ALLOW_DELETIONS]} == "1" ]]; then
+        RSYNC_FLAGS="$RSYNC_FLAGS --del"
+    fi
+    if [[ ${CONFIG[ALLOW_OVERWRITES]} == "0" ]]; then
+        RSYNC_FLAGS="$RSYNC_FLAGS --ignore-existing"
+    fi
+    # Exclude PID_FILE from being synced
+    RSYNC_FLAGS="${RSYNC_FLAGS} --exclude=/${PID_FILE}"
+
+    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM}/ ${RUN_DIR}/"
+    log_entry "| Running rsync: $RSYNC_COMMAND"
+    RSYNC_COMMAND="$RSYNC_COMMAND >> ${LOG_FILE} 2>&1"
+    eval $RSYNC_COMMAND
+    RSYNC_EXIT=$?
+    if [[ $RSYNC_EXIT -ne 0 ]]; then
+        log_entry "| Rsync command exited with code: $RSYNC_EXIT"
+        command_runscript FAILED_SCRIPT
+        mailer_rsync_exit $RSYNC_EXIT
+    else
+        hardlink_identicals
+        command_runscript SUCCESS_SCRIPT
+    fi
+
+    # Update timestamp of target dir to indicate backup time
+    touch $RUN_DIR
+}
+
+###############################
+## Run a rotate job
+runjob_rotation() {
+    log_entry "| Job type: rotation"
+    rotate_start
+    NEW_RUNDIR=$?
+    echo $$ > $PID_FULL
+
+    RSYNC_FLAGS="-av --stats ${CONFIG[RSYNC_FLAGS]}"
+    if [[ ${CONFIG[ALLOW_DELETIONS]} == "1" ]]; then
+        RSYNC_FLAGS="$RSYNC_FLAGS --del"
+    fi
+    if [[ ${CONFIG[ALLOW_OVERWRITES]} == "0" ]]; then
+        RSYNC_FLAGS="$RSYNC_FLAGS --ignore-existing"
+    fi
+
+    if [[ ${CONFIG[ROTATIONALS_HARD_LINK]} == "1" ]]; then
+        # Get previous directory for target of link-dest, or skip if no previous backup dir
+        PREV_BACKUP=$( rotate_current_backup )
+        if [[ $PREV_BACKUP != "" ]]; then
+            log_entry "| Hard linking identical files from: $PREV_BACKUP"
+            PREV_BACKUP_PATH=$( epath_join "${CONFIG[TARGET_DIR]}" "$PREV_BACKUP" )
+            RSYNC_FLAGS="${RSYNC_FLAGS} --link-dest=${PREV_BACKUP_PATH}"
+            # If using old version of rsync (prior to 3.1.0), we must manually link files from
+            # the previous backup dir; version 3.1.0 and later works with just the link-dest flag above
+            if ! rsync_gte_310; then
+                log_entry "| Old version of rsync detected, consider upgrading! Manually linking from previous rotation..."
+                pushd ${PREV_BACKUP_PATH}
+                if [[ $? -eq 0 ]]; then
+                    # Create missing directories in RUN_DIR
+                    # Compare files between PREV_BACKUP and RUN_DIR, hard link if different
+                    find . \
+                    \( \
+                        -type d -exec mkdir -p ${RUN_DIR}/{} \; \
+                        -o \
+                        -type f \
+                        \( \
+                            -exec cmp -s {} ${RUN_DIR}/{} \; \
+                            -o \
+                            -exec ln -f {} ${RUN_DIR}/{} \; \
+                        \) \
+                    \)
+                    popd
+                fi
+            fi
+        fi
+    fi
+
+    SYNC_FROM=$( escaped_rsync_source )
+    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM}/ ${RUN_DIR}/"
+    log_entry "| Running rsync: $RSYNC_COMMAND"
+    RSYNC_COMMAND="$RSYNC_COMMAND >> ${LOG_FILE} 2>&1"
+    eval $RSYNC_COMMAND
+    RSYNC_EXIT=$?
+    # Check for exit 24 and ignore
+    if [[ $RSYNC_EXIT -eq 24 ]]; then
+        RSYNC_EXIT=0
+    fi
+    # On any error, send email report
+    if [[ $RSYNC_EXIT -gt 0 ]]; then
+        log_entry "| Rsync command exited with code: $RSYNC_EXIT"
+        command_runscript FAILED_SCRIPT
+        mailer_rsync_exit $RSYNC_EXIT
+        return
+    else
+        hardlink_identicals
+        command_runscript SUCCESS_SCRIPT
+    fi
+
+    # If ALLOW_DELETIONS or ALLOW_OVERWRITES is 0, check for skipped files
+    if [[ ${CONFIG[ALLOW_DELETIONS]} == "0" || ${CONFIG[ALLOW_OVERWRITES]} == "0" ]]; then
+        runjob_skipped_files
+    fi
+
+    # Update timestamp of target dir to indicate backup time
+    touch $RUN_DIR
+
+    rotate_complete
+}
+
+###############################
+## Generate an email report of skipped files, and log them as well
+runjob_skipped_files() {
+    RSYNC_FLAGS="-ai --dry-run --existing ${CONFIG[RSYNC_FLAGS]}"
+    if [[ ${CONFIG[ALLOW_DELETIONS]} == "0" ]]; then
+        RSYNC_FLAGS="$RSYNC_FLAGS --del"
+    fi
+    if [[ ${CONFIG[ALLOW_OVERWRITES]} == "1" ]]; then
+        RSYNC_FLAGS="$RSYNC_FLAGS --ignore-existing"
+    fi
+    # Exclude PID_FILE from being synced
+    if [[ ${CONFIG[BACKUP_TYPE]} == "sync" ]]; then
+        RSYNC_FLAGS="${RSYNC_FLAGS} --exclude=/${PID_FILE}"
+    fi
+
+    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM}/ ${RUN_DIR}/"
+    log_entry "| Checking for skipped files..."
+    log_entry "| Running rsync: $RSYNC_COMMAND"
+    SKIP_RESULTS=$( $RSYNC_COMMAND | tee -a $LOG_FILE 2>&1 )
+    RSYNC_EXIT=${PIPESTATUS[0]}
+    SKIP_COUNT=$( echo "$SKIP_RESULTS" | wc -l )
+
+    # On any error, send email report
+    if [[ $RSYNC_EXIT -gt 0 ]]; then
+        log_entry "| Rsync command exited with code: $RSYNC_EXIT"
+    fi
+
+    if [[ $SKIP_COUNT -gt 5000 ]]; then
+        # If number of skipped files is too large, just list a summary count
+        SKIP_RESULTS="
+Skipped ${SKIP_COUNT} files from being altered based off limitations set in the '${CONF_FILE_BASE}' config file.
+
+For specifics, see the log file at:
+  ${LOG_FILE}"
+    elif [[ $SKIP_COUNT -gt 0 ]]; then
+        # Send list of skipped files in the email
+        SKIP_RESULTS="
+Skipped ${SKIP_COUNT} files from being altered based off limitations set in the '${CONF_FILE_BASE}' config file.
+
+$SKIP_RESULTS
+"
+    fi
+
+    # If any files were skipped, send an email report
+    if [[ ${CONFIG[NOTIFY_EMAIL]} != "" ]]; then
+        mailer "${CONFIG[NOTIFY_EMAIL]}" "cfgbackup job '${CONF_NAME}' skipped some files" "$SKIP_RESULTS"
+    fi
+}
+
+#######################################
+# RESET COMMAND
+#######################################
+
+###############################
+## Reset a failed job back to a ready state
+## Returns 0 on reset ready, 1 on reset canceled
+reset_makeready() {
+    if [[ $- == *i* ]] && status_is_running; then
+        read -p "The $CONF_NAME job is currently running. Do you want to kill it? [y/N] " -n 1
+        echo
+        if [[ $REPLY == "y" ]]; then
+            reset_killjob
+        else
+            echo "Leaving job running."
+            return 1
+        fi
+    fi
+    reset_killjob
+    return 0
+}
+
+###############################
+## Attempt to kill the currently running job; does nothing if no job if running
+## Ends script with exit code 1 if a job is still running after kill attempt
+reset_killjob() {
+    if status_is_running; then
+        PID=$( cat $PID_FULL )
+        echo "Killing $CONF_NAME backup job, pid ${PID}..."
+        kill $PID
+        sleep 3
+        if status_is_running; then
+            echo "Job is still alive; hiring better assassins..."
+            kill -9 $PID
+            sleep 2
+        fi
+        if status_is_running; then
+            echo "ERROR: Could not kill job for $CONF_NAME"
+            exit 1
+        fi
+    fi
+}
+
+###############################
+## Attempt to remove the pid file; does nothing if no pid file exists
+## Ends script with exit code 1 if pid file exists and could not be deleted
+reset_rmpidfile() {
+    if [[ -f $PID_FULL ]]; then
+        rm $PID_FULL
+        if [[ $? -ne 0 ]]; then
+            echo "ERROR: Could not remove pid file $PID_FULL"
+            exit 1
+        fi
+    fi
+}
+
+###############################
+## Attempt to move the running directory back to the oldest rotational directory name
+## Does nothing for sync jobs
+## For rotations using DATE subdir names, the dir name may not be what it was previously
+reset_mvrundir() {
+    if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
+        rotate_get_dirs
+        if [[ ! -d $RUN_DIR || ${#BACKUP_ROTATION_DIRS[@]} -lt 1 ]]; then
+            return
+        fi
+        rotate_reset
+    fi
+}
+
+###############################
+## For interactive terminals, get confirmation before killing a runnning job
+command_reset() {
+    if status_is_ready; then
+        echo "Job '$CONF_NAME' is ready and does not need to be reset."
+        exit 0
+    fi
+
+    if ! reset_makeready; then
+        return
+    fi
+    reset_rmpidfile
+    reset_mvrundir
+
+    if status_is_ready; then
+        echo "Job '$CONF_NAME' has been reset successfully."
+    else
+        echo "Job reset for '$CONF_NAME' failed!"
+        exit 1
+    fi
+}
+
+#######################################
+# LIST COMMAND
+#######################################
+
+###############################
+## Run list report
+command_list() {
+    # On sync job, report and exit
+    if [[ ${CONFIG[BACKUP_TYPE]} != "rotation" ]]; then
+        echo "Job '${CONF_NAME}' is a sync job. Backup lists only exist for rotation jobs."
+        return
+    fi
+
+    rotate_get_dirs
+
+    # Number of backups
+    BACKUP_COUNT=$( rotate_backup_count )
+    echo "Backups:  $BACKUP_COUNT / ${CONFIG[MAX_ROTATIONS]}"
+    if [[ $BACKUP_COUNT -gt 0 ]]; then
+        echo "------------------------------------------------------------"
+    fi
+
+    # List current backups
+    for SDIR in "${BACKUP_ROTATION_DIRS[@]}"; do
+        SDIR_FULL=$( epath_join "${CONFIG[TARGET_DIR]}" "$SDIR" )
+        SDIR_STATE=""
+        if [[ $SDIR_FULL == $RUN_DIR ]]; then
+            if status_is_running; then
+                SDIR_STATE="running"
+            elif status_is_dead; then
+                SDIR_STATE="dead"
+            elif status_is_failed; then
+                SDIR_STATE="failed"
+            fi
+            SDIR_STATE="(${SDIR_STATE})"
+        fi
+        SDIR_MTIME=$( date +%Y-%m-%d\ %H:%M -r $SDIR_FULL )
+        printf '%-44s' "${SDIR%[[:space:]]}  $SDIR_STATE"
+        printf '%s' "$SDIR_MTIME"
+        echo
+    done
+    # List past-rotation directories
+    if [[ ${#BACKUP_ROTATION_XDIRS[@]} -gt 0 ]]; then
+        printf '%s' "------------- Backups Past Rotation Max ("
+        PAST_NUM="${#BACKUP_ROTATION_XDIRS[@]}) -"
+        PAST_PAD="------------------"
+        printf '%s' "$PAST_NUM"
+        printf '%*.*s' 0 $(( 19 - ${#PAST_NUM} )) "$PAST_PAD"
+        echo
+    fi
+    for SDIR in "${BACKUP_ROTATION_XDIRS[@]}"; do
+        SDIR_FULL=$( epath_join "${CONFIG[TARGET_DIR]}" "$SDIR" )
+        SDIR_MTIME=$( date +%Y-%m-%d\ %H:%M -r $SDIR_FULL )
+        printf '%-44s' "${SDIR%[[:space:]]}"
+        printf '%s' "$SDIR_MTIME"
+        echo
+    done
+}
+
+#######################################
+# HELP, GLOBALS, AND COMMAND SELECT
 #######################################
 
 # Command help
