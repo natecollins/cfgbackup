@@ -1,4 +1,4 @@
 *~
 *.swp
 test/
-dist-deb/
+build/dist-deb/

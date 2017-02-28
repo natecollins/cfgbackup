@@ -13,12 +13,12 @@ config_param_get() {
 # Get Builder Info
 while [[ -z $PKGBLD_NAME ]]; do
     echo "Enter your name (first and last):"
-    read PKGBLD_NAME
+    read -p "> " PKGBLD_NAME
 done
 
 while [[ -z $PKGBLD_EMAIL ]]; do
     echo "Enter your email contact:"
-    read PKGBLD_EMAIL
+    read -p "> " PKGBLD_EMAIL
 done
 
 echo
@@ -31,14 +31,17 @@ if [[ $CONFIRM_PRMPT != "y" ]]; then
 fi
 
 ###############################
-# Build Base
+# Base Info
 BUILD_DIR=$( dirname ${BASH_SOURCE[0]} )
 cd "$BUILD_DIR"
 BUILD_DIR=$( pwd )
 DIST_DIR="${BUILD_DIR}/dist-deb"
-echo "Build dir: $BUILD_DIR"
-echo "Dist dir:  $DIST_DIR"
-VERSION=$( config_param_get "$BUILD_DIR/cfgbackup" "VERSION" )
+SRC_DIR=$( dirname $BUILD_DIR )
+echo "Build dir:   $BUILD_DIR"
+echo "Dist dir:    $DIST_DIR"
+echo "Source dir:  $SRC_DIR"
+VERSION=$( config_param_get "$SRC_DIR/cfgbackup" "VERSION" )
+echo "Version:     $VERSION"
 mkdir -p "$DIST_DIR"
 
 ###############################
@@ -47,12 +50,13 @@ echo "2.0\n" > "$DIST_DIR/debian-binary"
 
 ###############################
 # File: data.tar.gz
+echo "Creating data.tar.gz..."
 mkdir -p "$DIST_DIR/data"
 mkdir -p "$DIST_DIR/data/usr/bin"
-cp "$BUILD_DIR/cfgbackup" "$DIST_DIR/data/usr/bin"
+cp "$SRC_DIR/cfgbackup" "$DIST_DIR/data/usr/bin"
 mkdir -p "$DIST_DIR/data/usr/share/doc/cfgbackup"
-cp "$BUILD_DIR/example.conf" "$DIST_DIR/data/usr/share/doc/cfgbackup"
-cp "$BUILD_DIR/README.md" "$DIST_DIR/data/usr/share/doc/cfgbackup"
+cp "$SRC_DIR/example.conf" "$DIST_DIR/data/usr/share/doc/cfgbackup"
+cp "$SRC_DIR/README.md" "$DIST_DIR/data/usr/share/doc/cfgbackup"
 cat > "$DIST_DIR/data/usr/share/doc/cfgbackup/copyright" <<- EOM
 This package was assembled by $PKGBLD_NAME <$PKGBLD_EMAIL>
 on $( date ).
@@ -66,12 +70,12 @@ Copyright: Copyright (C) 2017 Nathan Collins <npcollins@gmail.com>
 License: MIT
 
 EOM
-cat "$BUILD_DIR/LICENSE" >> "$DIST_DIR/data/usr/share/doc/cfgbackup/copyright"
+cat "$SRC_DIR/LICENSE" >> "$DIST_DIR/data/usr/share/doc/cfgbackup/copyright"
 mkdir -p "$DIST_DIR/data/usr/share/man/man1/"
-cp "$BUILD_DIR/man1/cfgbackup.1" "$DIST_DIR/data/usr/share/man/man1/cfgbackup.1"
+cp "$SRC_DIR/man/cfgbackup.1" "$DIST_DIR/data/usr/share/man/man1/cfgbackup.1"
 gzip -f "$DIST_DIR/data/usr/share/man/man1/cfgbackup.1"
 mkdir -p "$DIST_DIR/data/etc/cfgbackup/"
-cp "$BUILD_DIR/example.conf" "$DIST_DIR/data/etc/cfgbackup"
+cp "$SRC_DIR/example.conf" "$DIST_DIR/data/etc/cfgbackup"
 mkdir -p "$DIST_DIR/data/var/log/cfgbackup/"
 cd "$DIST_DIR/data"
 tar -czvf ../data.tar.gz ./
@@ -79,6 +83,7 @@ cd "$BUILD_DIR"
 
 ###############################
 # File: control.tar.gz
+echo "Creating control.tar.gz..."
 mkdir -p "$DIST_DIR/control"
 cd "$DIST_DIR/data"
 find ./ -type f -exec md5sum {} \; > "$DIST_DIR/control/md5sum"
@@ -88,9 +93,9 @@ Package: cfgbackup
 Version: $VERSION
 Architecture: all
 Maintainer: $PKGBLD_NAME <$PKGBLD_EMAIL>
-Installed-Size: $(( ($( wc -c < "$BUILD_DIR/cfgbackup" ) + 1023) / 1024 ))
+Installed-Size: $(( ($( wc -c < "$SRC_DIR/cfgbackup" ) + 1023) / 1024 ))
 Depends: bash (>= 4.3.0), rsync (>= 2.6.9), coreutils, sed, awk, hardlink
-Recommends: rsync (>= 3.1.0), mail-transport-agent
+Recommends: rsync (>= 3.1.0), mail-transport-agent, heirloom-mailx
 Section: utils
 Priority: optional
 Homepage: https://github.com/natecollins/cfgbackup/
@@ -105,8 +110,9 @@ cd "$BUILD_DIR"
 
 ###############################
 # Create deb archive
+DEB_FILE="cfgbackup-${VERSION}.deb"
 cd "$DIST_DIR"
-ar r cfgbackup-${VERSION}.deb debian-binary data.tar.gz control.tar.gz
+ar r "$DEB_FILE" debian-binary data.tar.gz control.tar.gz
 cd "$BUILD_DIR"
 
 ###############################
