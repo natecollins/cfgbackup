@@ -210,6 +210,10 @@ mail_exists() {
 ##  $2 -> Subject
 ##  $3 -> Message
 mailer() {
+    if ! mail_exists; then
+        log_entry "| Unable to send email to ${RECIPIENT}; could not find program: ${COMMAND[MAIL_PATH]}"
+        return 1
+    fi
     RECIPIENT=$1
     SUBJECT=$2
     MESSAGE=$3
@@ -567,13 +571,13 @@ rotate_reset_date() {
         COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${COMPL_SUB} )
         COMPL_EXT=0
         # Check if complete dir already exists (with some sanity limits)
-        while [[ -d $COMPL_DIR && $COMPL_EXT -le 999 ]]; do
+        while [[ -d $COMPL_DIR && $COMPL_EXT -le 1499 ]]; do
             # If exists, append .1, .2, .3, etc to complete dir
             COMPL_EXT=$(( COMPL_EXT + 1 ))
             COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} "${COMPL_SUB}.${COMPL_EXT}" )
         done
-        if [[ $COMPL_EXT -gt 999 ]]; then
-            echo "ERROR: Can't reset! Too many backups for single date (Max of 999): ${$USE_DATE}"
+        if [[ $COMPL_EXT -gt 1499 ]]; then
+            echo "ERROR: Can't reset! Too many backups for single date (Max of 1499): ${$USE_DATE}"
             exit 1
         fi
 
@@ -639,14 +643,14 @@ rotate_complete_date() {
     COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${COMPL_SUB} )
     COMPL_EXT=0
     # Check if complete dir already exists (with some sanity limits)
-    while [[ -d $COMPL_DIR && $COMPL_EXT -le 999 ]]; do
+    while [[ -d $COMPL_DIR && $COMPL_EXT -le 1499 ]]; do
         # If exists, append .1, .2, .3, etc to complete dir
         COMPL_EXT=$(( COMPL_EXT + 1 ))
         COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} "${COMPL_SUB}.${COMPL_EXT}" )
     done
     # Too many backups!
-    if [[ $COMPL_EXT -gt 999 ]]; then
-        echo "ERROR: Too many backups for single date (Max of 999): ${TODAY}"
+    if [[ $COMPL_EXT -gt 1499 ]]; then
+        echo "ERROR: Too many backups for single date (Max of 1499): ${TODAY}"
         exit 1
     fi
     log_entry "| Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $COMPL_DIR )"

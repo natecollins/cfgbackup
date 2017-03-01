@@ -1,4 +1,4 @@
-CFGBACKUP - Simple File Backups
+cfgbackup - Simple File Backups
 ========================================
 An easy to use file backup script where each job is based around a simple config file.  
 - All backups are just files in directories, no special tools for recovery
@@ -10,24 +10,24 @@ An easy to use file backup script where each job is based around a simple config
 - Detailed logging
 - Very customizable
 
-* [Requirements](#requirements)
+* [Dependencies](#dependencies)
 * [Basic Usage](#basic-usage)
 * [Config Options](#config-options)
-* [More Details](#more-details)
+* [More Information](#more-information)
+* [Special Circumstances](#special-circumstances)
+* [Author and License](#author-and-license)
 
 
-Requirements
+Dependencies
 ------------------------
-- Bash Shell 4.3+
-- rsync
+- bash 4.3+
+- rsync (recommended 3.1.0+)
 - awk
 - sed
-- GNU Coreutils
+- coreutils
+- findutils
+- hardlink (recommended)
 
-Recommended
-------------------------
-- rsync 3.1.0+
-- hardlink
 
 Basic Usage
 ------------------------
@@ -256,16 +256,18 @@ ALLOW_OVERWRITES=0
 `RSYNC_FLAGS` For any additional custom flag you would like passed directy to rsync. Note this only adds additional
 flags, however, you can use the `--no-OPTION` flags to negate implied flags. For example, you can pass the
 `--no-p` flag to not have rsync syncronize permissions. See the rsync manual for details: `man rsync`  
+Flags always included, even when none are specified: `-av --stats`  
 ```
 RSYNC_FLAGS=--exclude=.DS_Store --exclude=._*
 ```
 
 `PRE_SCRIPT`,`SUCCESS_SCRIPT`,`FAILED_SCRIPT`,`FINAL_SCRIPT` All these script options allow for the setting
-of a script to run at a specific time during a backup job run. Rememeber to have execute permissions set on your scripts.
+of a script to run at a specific time during a backup job run.
  - `PRE_SCRIPT` This script will be run immediately when the backup job starts (but after config if checked/parsed), before any other run actions.
  - `SUCCESS_SCRIPT` Runs this script after the backup job has completed if rsync returns an exit code of 0; also waits until after hardlinks are created if `IDENTICALS_HARD_LINK` is set to 1.
  - `FAILED_SCRIPT` Runs this script immediate after rsync if rsync returns an exit code other than 0.
  - `FINAL_SCRIPT` This script runs as the last thing before the cfgbackup run job ends, regardless of success or failure.
+All scripts specified will cause the backup job to abort if they return a non 0 exit code.  
 ```
 PRE_SCRIPT=/usr/local/bin/app-cache --clear
 SUCCESS_SCRIPT=service myapp restart
@@ -297,13 +299,26 @@ used by switching the binary.
 RSYNC_PATH=/usr/local/bin/rsync
 COMPRESS_PATH=bzip2
 HARDLINK_PATH=/usr/local/bin/hardlink
-MAIL_PATH=/usr/local/bin/mail
+MAIL_PATH=/usr/local/bin/mailx
 SORT_PATH=/usr/local/bin/gsort
 ```
 
 
-More Details
+More Information
 ------------------------
+**Backups should be remote and inaccessible**  
+Backups should never reside on the same machine where the original files exist. Any "backups" that
+exist on the origin machine's disk are completely worthless if the RAID fails, file-system become
+corrupted, rack catches on file, etc.  
+
+Additionally, backups that are accessible by the origin machine aren't very helpful when put up
+against malicious actors. Any hacker/disgruntled employee who has access to the original data
+may attempt to sully the backups as well.  
+
+Either setup and use a remote Public Key SSH connection to grab the source files from the origin
+machine, or have the source machine push a single copy of its data to a remote location, and then
+have the backup job pull a rotation from there.  
+
 **Be Careful with Hard Links**  
 Hard linking files is great for reducing the disk spaces used; you can have dozens of files hard linked
 together and the data for all those files will take up the same disk space as the data for a single
@@ -328,19 +343,11 @@ reset a job. To reset a job:
  - For rotationals, rename the `RUNNING_DIRNAME` back to be the oldest backup of your `MAX_ROTATIONS`
 
 
-Solutions
+Special Circumstances
 ------------------------
 Following are a number of situations and how you could solve them. A large number
 of problems can be solved via use the the `RSYNC_FLAGS` option, as rsync is quite
 powerful.  
-
-**Only allow new files; no changes/deletions**  
-To prevent file changes and deletions, and then have cfgbackup email you a report of prevented
-changes/deletions to `NOTIFY_EMAIL`, just set the following two options:
-```
-ALLOW_DELETIONS=0
-ALLOW_OVERWRITES=0
-```
 
 **SSH on non-standard port**  
 To change which SSH port rsync will use, you must manually set the remote shell using
@@ -381,6 +388,14 @@ to wait for I/O to happen.
 RSYNC_FLAGS=--timeout=3600
 ```
 
+**Only allow new files; no changes/deletions**  
+To prevent file changes and deletions, and then have cfgbackup email you a report of prevented
+changes/deletions to `NOTIFY_EMAIL`, just set the following two options:
+```
+ALLOW_DELETIONS=0
+ALLOW_OVERWRITES=0
+```
+
 **Running on a Mac**  
 Unfortunately, Apple ships their OS with _very_ old version of some open
 source software installed.
@@ -391,5 +406,27 @@ but all can get the job done.
   - MacPorts: `https://www.macports.org/` Similarities to BSD ports package manager.
   - Fink: `http://www.finkproject.org/` Similarities to Debian apt package manager.
 
-TODO  
+Once setup, install the required packages using the method appropriate to the
+package management you selected. You will likely need to specify all the paths
+to the tools you installed as options in the config file.  
+
+Once installed, you may need to specify the path to newer binaries. Examples:  
+```
+# Homebrew example paths
+RSYNC_PATH=/usr/local/bin/rsync
+SORT_PATH=/usr/local/bin/gsort
+# Macports example paths
+RSYNC_PATH=/opt/local/bin/rsync
+SORT_PATH=/opt/local/bin/sync
+# Fink example paths
+RSYNC_PATH=/sw/bin/rsync
+SORT_PATH=/sw/bin/sort
+```
+
+
+Author and License
+------------------------
+by Nathan Collins <npcollins@ gmail.com>  
+
+Released under the MIT License
 

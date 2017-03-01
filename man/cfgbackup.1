@@ -7,33 +7,31 @@ cfgbackup \- an easy to use file backup script based around a config file
 [CONFIG_FILE] [COMMAND]
 
 .SH "DESCRIPTION"
-
 .PP
 cfgbackup creates backups of a directory given a config file specifying
 how the backup should be run. Each backup job uses a separate config
 file. See provided example.conf file as a template to use for
 setting up a config file. Scheduling of backups should be handled
 by cron.
-.PP
 
 .SH "COMMANDS"
 .TP
-\fBcheck\fR
+.B check
 Perform a verification of the config file and check
 that access to the source and target directories exist.
 .TP
-\fBstatus\fR
+.B status
 Print out the current status of any current job for the
 given config. If no job is running, reports on the last
 job that ran.
 .TP
-\fBlist\fR
+.B list
 List rotational backup subdirectories for the given conf.
 .TP
-\fBrun\fR
+.B run
 Run the backup according to the config file provided.
 .TP
-\fBreset\fR
+.B reset
 Resets partially completed or failed backups. This will
 abort a currently running backup.
 
@@ -41,19 +39,143 @@ abort a currently running backup.
 .PP
 The CONFIG_FILE is a file with a set of config options. Required
 options are SOURCE_DIR, TARGET_DIR, and BACKUP_TYPE.
+.PP
+Binary options allow values of 0 (disabled) or 1 (enabled).
 
 .TP
-\fBNOTIFY_EMAIL\fR
-Lorum ipsum etc
+.B SOURCE_DIR
+The directory to create backups from. Can be local or remote via SSH.
+
 .TP
-\fBSOURCE_DIR\fR
-Lorum ipsum etc
+.B TARGET_DIR
+The directory to sync to (sync type), or where to create subdirectory
+rotations (rotation type). Must be a local directory.
+
 .TP
-\fBTARGET_DIR\fR
-Lorum ipsum etc
+.B BACKUP_TYPE
+The type of backup to make. Value must be either `sync` or `rotaion`.
+
 .TP
-\fBBACKUP_TYPE\fR
-Lorum ipsum etc
+.B NOTIFY_EMAIL
+The email to send failures and notification to. If left blank,
+then no emails will be sent.
+
+.TP
+.B LOG_DIR
+The directory where log files will be saved.
+.IP
+Default: /var/log/cfgbackup/
+
+.TP
+.B LOG_FILENAME
+The name of the log file to use for a job. Variables
+you can use in the value are: CONFNAME, DATE, TIME
+.IP
+Default: CONFNAME_DATE.log
+
+.TP
+.B COMPRESS_LOGS
+Check for logs over 2 days old matching LOG_FILENAME pattern and compress them.
+.IP
+Default: 1
+
+.TP
+.B MAX_ROTATIONS
+This is the maximum number of rotational backups to make.
+.IP
+Required value for rotation type jobs; ignored otherwise.
+
+.TP
+.B ROTATIONALS_HARD_LINK
+Any unchanged files between rotation backups will be hard linked together. Only applies
+to rotation type jobs.
+.IP
+Default: 0
+
+.TP
+.B IDENTICALS_HARD_LINK
+Any files with identical content within a single backup will will be hard linked together. For
+large backups, this may take considerable time.
+.IP
+Default: 0
+
+.TP
+.B ROTATE_SUBDIR
+Specify the name pattern of rotation job subdirectories. Only applies
+to rotation type jobs. Variables you can use in the value are:
+DATE, NUM0, NUM1, NUM00, NUM01, ...
+.IP
+Default: backup-NUM1
+
+.TP
+.B ALLOW_DELETIONS
+Files may be deleted from the target directory if they are missing
+from the source directory. If disabled, will send notification on what files
+are missing from source directory.
+.IP
+Default: 1
+
+.TP
+.B ALLOW_OVERWRITES
+Files may be updated/overwritten in the target directory if they differ
+from the source directory. If disabled, will send notification on what files
+are different in the source directory.
+.IP
+Default: 1
+
+.TP
+.B RSYNC_FLAGS
+Add extra flags to the main rsync backup process.
+
+.TP
+.B PRE_SCRIPT, SUCCESS_SCRIPT, FAILED_SCRIPT, FINAL_SCRIPT
+Script options, when specified, run at specific times of a backup job. Script must return
+an exit code of 0, or the backup job will be aborted.
+.IP
+.B PRE_SCRIPT
+runs immediately when the backup job starts, before any other run actions.
+.IP
+.B SUCCESS_SCRIPT
+runs after completion of rsync command (and hardlink process, if enabled), but only if rsync returns an exit code of 0.
+.IP
+.B FAILED_SCRIPT
+runs after completion of rsync command, but only if rsync returns a non 0 exit code.
+.IP
+.B FINAL_SCRIPT
+runs as the last thing before the cfgbackup run job ends, regardless of success or failure.
+
+.TP
+.B RUNNING_DIRNAME
+Sets the name of the subdirectory used while running an active backup job. Only applies
+to rotation type jobs.
+.IP
+Default: backup-running
+
+.TP
+.B PID_FILE
+Sets the name of the file created in the TARGET_DIR while a job is running which contains
+the job process id. Deleted once job completes.
+.IP
+Default: .cfgbackup.pid
+
+.TP
+.B RSYNC_PATH, COMPRESS_PATH, HARDLINK_PATH, MAIL_PATH, SORT_PATH
+Set the path where each binary can be found, overriding defaults.
+.IP
+.B RSYNC_PATH
+sets path to the rsync binary.
+.IP
+.B COMPRESS_PATH
+sets path to the binary used to compress logs. Default: gzip
+.IP
+.B HARDLINK_PATH
+sets path to the hardlink binary.
+.IP
+.B MAIL_PATH
+sets path to the mail/mailx binary.
+.IP
+.B SORT_PATH
+sets path to the sort binary.
 
 .SH "REPORTING BUGS"
 .PP
@@ -67,5 +189,5 @@ Released under the MIT License
 
 .SH "AUTHOR"
 .PP
-Written by Nathan Collins
+Written by Nathan Collins <npcollins@ gmail.com>
 
