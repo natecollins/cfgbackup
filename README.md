@@ -20,7 +20,7 @@ An easy to use file backup script where each job is based around a simple config
 
 Dependencies
 ------------------------
-- bash 4.3+
+- bash 4.2+
 - rsync (recommended 3.1.0+)
 - awk
 - sed
