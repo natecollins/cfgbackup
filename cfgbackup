@@ -40,8 +40,8 @@ precheck_requirements() {
     fi
 
     # Verify required tools exist and have required versions
-    if ! bash_gte_430; then
-        echo "ERROR: cfgbackup requires Bash version 4.3.0 or greater."
+    if ! bash_gte_420; then
+        echo "ERROR: cfgbackup requires Bash version 4.2.0 or greater."
         exit 1
     fi
     # Verify rsync is available
@@ -172,11 +172,11 @@ rsync_gte_310() {
 }
 
 ###############################
-## Is the running version of bash at least 4.3.0
-## Returns 0 if version 4.3.0 or greater
-bash_gte_430() {
-    BASH_VCHECK=$( echo -e "${BASH_VERSION}\n4.3.0" | ${CONFIG[SORT_PATH]} -V | head -n 1 )
-    if [[ $BASH_VCHECK == "4.3.0" ]]; then
+## Is the running version of bash at least 4.2.0
+## Returns 0 if version 4.2.0 or greater
+bash_gte_420() {
+    BASH_VCHECK=$( echo -e "${BASH_VERSION}\n4.2.0" | ${CONFIG[SORT_PATH]} -V | head -n 1 )
+    if [[ $BASH_VCHECK == "4.2.0" ]]; then
         return 0;
     fi
     return 1
@@ -435,10 +435,19 @@ rotate_backup_running() {
 ## Sets the results in the array: BACKUP_ROTATION_DIRS
 ## Also records directories past the max in the array: BACKUP_ROTATION_XDIRS
 rotate_get_dirs() {
+    shopt -s extglob
     declare -g -a BACKUP_ROTATION_DIRS
     declare -g -a BACKUP_ROTATION_XDIRS
     if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
-        readarray BACKUP_ROTATION_DIRS < <( ls -1 ${CONFIG[TARGET_DIR]} | ${CONFIG[SORT_PATH]} -V )
+        MATCH_DATE=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "DATE" )
+        SDIR_MATCH=${CONFIG[ROTATE_SUBDIR]};
+        if [[ $MATCH_DATE != "-1" ]]; then
+            SDIR_MATCH=${SDIR_MATCH//DATE/[0-9]\\\{8\\\}}
+        else
+            SDIR_MATCH=${SDIR_MATCH//NUM*(0)+(0|1)/[0-9]\\\+}
+        fi
+        LIST_TARGET=$( epath_join ${CONFIG[TARGET_DIR]} )
+        readarray BACKUP_ROTATION_DIRS < <( ls -1 ${LIST_TARGET} | grep "${SDIR_MATCH}" | ${CONFIG[SORT_PATH]} -V )
         # Ensure running and aborted dirs are listed first
         RUN_IDX=$( array_value_index BACKUP_ROTATION_DIRS ${CONFIG[RUNNING_DIRNAME]} )
         if [[ $RUN_IDX != "-1" ]]; then
