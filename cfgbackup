@@ -441,13 +441,15 @@ rotate_get_dirs() {
     if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
         MATCH_DATE=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "DATE" )
         SDIR_MATCH=${CONFIG[ROTATE_SUBDIR]};
+        SORT_FLAGS="-V"
         if [[ $MATCH_DATE != "-1" ]]; then
             SDIR_MATCH=${SDIR_MATCH//DATE/[0-9]\\\{8\\\}}
+            SORT_FLAGS="-V -r"
         else
             SDIR_MATCH=${SDIR_MATCH//NUM*(0)+(0|1)/[0-9]\\\+}
         fi
         LIST_TARGET=$( epath_join ${CONFIG[TARGET_DIR]} )
-        readarray BACKUP_ROTATION_DIRS < <( ls -1 ${LIST_TARGET} | grep "${SDIR_MATCH}" | ${CONFIG[SORT_PATH]} -V )
+        readarray BACKUP_ROTATION_DIRS < <( ls -1 ${LIST_TARGET} | grep "${SDIR_MATCH}" | ${CONFIG[SORT_PATH]} $SORT_FLAGS )
         # Ensure running and aborted dirs are listed first
         RUN_IDX=$( array_value_index BACKUP_ROTATION_DIRS ${CONFIG[RUNNING_DIRNAME]} )
         if [[ $RUN_IDX != "-1" ]]; then

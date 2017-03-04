@@ -105,6 +105,10 @@ Specify the name pattern of rotation job subdirectories. Only applies
 to rotation type jobs. Variables you can use in the value are:
 DATE, NUM0, NUM1, NUM00, NUM01, ...
 .IP
+For the NUM variables, the lower numbered backups represent the more recent backups. For the
+DATE variable, running multiple jobs per day will append .1, .2, etc to the end of the directory
+name, with the larger numbers representing the more recent backups.
+.IP
 Default: backup-NUM1
 
 .TP
