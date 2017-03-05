@@ -570,33 +570,25 @@ rotate_reset_date() {
         OLDEST_DIR="${BACKUP_ROTATION_DIRS[-1]}"
         DATE_MATCHER=${CONFIG[ROTATE_SUBDIR]/DATE/"([[:digit:]]{8})"}
         OLDEST_DATE=${BASH_REMATCH[1]}
-        USE_DATE=$( date +%Y%m%d -d "$OLDEST_DATE -1day" )
+        USE_DATE=$( date +%Y%m%d -d "$OLDEST_DATE" )
 
         CHECK_SUB=${CONFIG[ROTATE_SUBDIR]/DATE/$USE_DATE}
         CHECK_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${CHECK_SUB} )
         if [[ -d $CHECK_DIR ]]; then
             USE_DATE=$OLDEST_DATE
+            USE_DATE=$( date +%Y%m%d -d "$OLDEST_DATE -1day" )
+            CHECK_SUB=${CONFIG[ROTATE_SUBDIR]/DATE/$USE_DATE}
+            CHECK_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${CHECK_SUB} )
+        fi
+        if [[ -d $CHECK_DIR ]]; then
+            CHECK_DIR=$( epath_join ${CONFIG[TARGET_DIR]} "${CHECK_SUB}.0" )
         fi
 
-        COMPL_SUB=${CONFIG[ROTATE_SUBDIR]/DATE/$USE_DATE}
-        COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${COMPL_SUB} )
-        COMPL_EXT=0
-        # Check if complete dir already exists (with some sanity limits)
-        while [[ -d $COMPL_DIR && $COMPL_EXT -le 1499 ]]; do
-            # If exists, append .1, .2, .3, etc to complete dir
-            COMPL_EXT=$(( COMPL_EXT + 1 ))
-            COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} "${COMPL_SUB}.${COMPL_EXT}" )
-        done
-        if [[ $COMPL_EXT -gt 1499 ]]; then
-            echo "ERROR: Can't reset! Too many backups for single date (Max of 1499): ${$USE_DATE}"
-            exit 1
-        fi
-
-        echo "Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $COMPL_DIR )"
+        echo "Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $CHECK_DIR )"
         # Rename to complete dir
-        mv $RUN_DIR $COMPL_DIR
+        mv $RUN_DIR $CHECK_DIR
         if [[ $? -ne 0 ]]; then
-            echo "ERROR: Could not rename directory to: ${COMPL_DIR}"
+            echo "ERROR: Could not reset directory: ${RUN_DIR}"
             exit 1
         fi
     fi
@@ -653,6 +645,13 @@ rotate_complete_date() {
     COMPL_SUB=${CONFIG[ROTATE_SUBDIR]/DATE/$TODAY}
     COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} ${COMPL_SUB} )
     COMPL_EXT=0
+    # If oldest backup is already for todays date, start from that
+    RECENT_DIR=$( rotate_current_backup )
+    MATCH_RECENT=$( substr_index "${RECENT_DIR}" "${COMPL_SUB}." )
+    if [[ $MATCH_RECENT != "-1" ]]; then
+        COMPL_EXT=${RECENT_DIR#${COMPL_SUB}.}
+        COMPL_DIR=$( epath_join ${CONFIG[TARGET_DIR]} "${COMPL_SUB}.${COMPL_EXT}" )
+    fi
     # Check if complete dir already exists (with some sanity limits)
     while [[ -d $COMPL_DIR && $COMPL_EXT -le 1499 ]]; do
         # If exists, append .1, .2, .3, etc to complete dir
