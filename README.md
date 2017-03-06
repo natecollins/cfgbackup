@@ -120,6 +120,10 @@ you start a new job.
 ./cfgbackup alpha.conf reset
 ```
 
+Note: When running reset on a job with DATE based subdirectories, the command will
+reset the folder to a date just older than the oldest backup directory, not
+necessarily the date it was before running the job.  
+
 
 Config Options
 ------------------------

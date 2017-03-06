@@ -446,7 +446,15 @@ rotate_get_dirs() {
             SDIR_MATCH=${SDIR_MATCH//DATE/[0-9]\\\{8\\\}}
             SORT_FLAGS="-V -r"
         else
-            SDIR_MATCH=${SDIR_MATCH//NUM*(0)+(0|1)/[0-9]\\\+}
+            # Then try to match exactly
+            NUM_RE="NUM(0*)[01][^01]?"
+            if [[ ${CONFIG[ROTATE_SUBDIR]} =~ $NUM_RE ]]; then
+                NUM_LEN=$(( ${#BASH_REMATCH[1]} + 1 ))
+                SDIR_MATCH=${SDIR_MATCH//NUM*(0)+(0|1)/[0-9]\\\{${NUM_LEN}\\\}}\\b
+            else
+                echo "ERROR: Could not parse NUM variable when matching rotation subdirectories."
+                exit 1
+            fi
         fi
         LIST_TARGET=$( epath_join ${CONFIG[TARGET_DIR]} )
         readarray BACKUP_ROTATION_DIRS < <( ls -1 ${LIST_TARGET} | grep "\\(${SDIR_MATCH}\\|${CONFIG[RUNNING_DIRNAME]}\\)" | ${CONFIG[SORT_PATH]} $SORT_FLAGS )
@@ -1158,7 +1166,7 @@ $SKIP_RESULTS
 ## Reset a failed job back to a ready state
 ## Returns 0 on reset ready, 1 on reset canceled
 reset_makeready() {
-    if [[ $- == *i* ]] && status_is_running; then
+    if [[ -t 0 ]] && status_is_running; then
         read -p "The $CONF_NAME job is currently running. Do you want to kill it? [y/N] " -n 1
         echo
         if [[ $REPLY == "y" ]]; then
