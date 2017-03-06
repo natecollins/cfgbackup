@@ -429,7 +429,7 @@ rotate_backup_running() {
 }
 
 ###############################
-## Get list of current backup directories, including active and aborted dirs
+## Get list of current backup directories, including active/failed dirs
 ## Ordered by newest backups first, with running/aborted dirs considered newest
 ## If number of backups exceeds MAX_ROTATIONS, only gets MAX_ROTATIONS directories
 ## Sets the results in the array: BACKUP_ROTATION_DIRS
@@ -449,7 +449,7 @@ rotate_get_dirs() {
             SDIR_MATCH=${SDIR_MATCH//NUM*(0)+(0|1)/[0-9]\\\+}
         fi
         LIST_TARGET=$( epath_join ${CONFIG[TARGET_DIR]} )
-        readarray BACKUP_ROTATION_DIRS < <( ls -1 ${LIST_TARGET} | grep "${SDIR_MATCH}" | ${CONFIG[SORT_PATH]} $SORT_FLAGS )
+        readarray BACKUP_ROTATION_DIRS < <( ls -1 ${LIST_TARGET} | grep "\\(${SDIR_MATCH}\\|${CONFIG[RUNNING_DIRNAME]}\\)" | ${CONFIG[SORT_PATH]} $SORT_FLAGS )
         # Ensure running and aborted dirs are listed first
         RUN_IDX=$( array_value_index BACKUP_ROTATION_DIRS ${CONFIG[RUNNING_DIRNAME]} )
         if [[ $RUN_IDX != "-1" ]]; then
