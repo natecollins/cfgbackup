@@ -10,8 +10,12 @@ An easy to use file backup script where each job is based around a simple config
 - Detailed logging
 - Very customizable
 
+
+Quick Links
+------------------------
 * [Dependencies](#dependencies)
 * [Basic Usage](#basic-usage)
+* [Commands](#commands)
 * [Config Options](#config-options)
 * [More Information](#more-information)
 * [Special Circumstances](#special-circumstances)
@@ -31,20 +35,22 @@ Dependencies
 
 Basic Usage
 ------------------------
-There are two basic types of backup jobs `cfgbackup` can do: sync and rotation  
- - `sync` jobs syncronize a directory from one location to another
+There are two basic types of backup jobs `cfgbackup` can do: `rotation` and `sync`  
  - `rotation` jobs create a series of backups rotations in subdirs of the target dir
+ - `sync` jobs syncronize a directory from one location to another
 
-Each backup job has it's own config file. Provided is an example one called `example.conf`;
-copy this file to your own file name in a logical location (suggested `/etc/cfgbackup/`).  
+Each backup job has it's own config file. Provided is an sample config called `example.conf`;
+recommended is that you copy this file to use as a template, modifying it as you like. The
+file can reside anywhere, but suggested location for your config files in production
+is `/etc/cfgbackup/`.  
 
-In this file, you will need to specify a few required options.  
+In this file, you will need to specify a few required config options.  
 `BACKUP_TYPE` which can be either `rotation` or `sync`  
 `SOURCE_DIR` which is the directory to be backed up (can be remote over SSH)  
 `TARGET_DIR` is where the backup(s) should go; must be a local directory  
 `MAX_ROTATIONS` how many rotation subdirs to create (`rotation` jobs only)  
 
-An example config file, let's call it `alpha.conf`, might be something like this:
+An example config file, let's call it `alpha.conf`, might be something like this:  
 ```
 BACKUP_TYPE=rotation
 SOURCE_DIR=/var/data/
@@ -64,6 +70,17 @@ The `cfgbackup` script is run in the format of:
 The `[config]` is just the path to the config file you want to use. The `[command]` can be one
 of a number of commands, enumerated below.  
 
+
+Commands
+------------------------
+- [`check`](#command-check)
+- [`run`](#command-run)
+- [`status`](#command-status)
+- [`list`](#command-list)
+- [`reset`](#command-reset)
+
+
+<a name="command-check"></a>
 **Check Command**  
 The `check` command will check the config passed for errors.  
 ```
@@ -74,6 +91,7 @@ If something wrong is detected in the config file, a message will display descri
 
 If no problems are detected, it will respond with `Config is OK.`.  
 
+<a name="command-run"></a>
 **Run Command**  
 The `run` command will attempt to start a job for the given config file. It will validate the
 config first, same as the `check` command, and then verify that there isn't already a job
@@ -96,6 +114,7 @@ and a date of 2016-12-31 then the log file would be:
 If you run a job multiple time to the same log file, then the log entries will be
 appended to it.
 
+<a name="command-status"></a>
 **Status Command**  
 The `status` command will report the current status of the job in question. It will
 report the type of job, whether it is running or failed, what the process id, and
@@ -104,6 +123,7 @@ more. It also reports the last few lines of the most recent log file.
 ./cfgbackup alpha.conf status
 ```
 
+<a name="command-list"></a>
 **List Command**  
 The `list` command is for rotation job only. It will list all backup rotation
 subdirectories and their date.
@@ -111,6 +131,7 @@ subdirectories and their date.
 ./cfgbackup alpha.conf list
 ```
 
+<a name="command-reset"></a>
 **Reset Command**  
 The `reset` command will attempt to reset things to a state where you can run a new
 job. If a job is running, it can attempt to kill the current job. If the previous
@@ -127,6 +148,26 @@ necessarily the date it was before running the job.
 
 Config Options
 ------------------------
+- [`SOURCE_DIR`](#source-dir)
+- [`TARGET_DIR`](#target-dir)
+- [`BACKUP_TYPE`](#backup-type)
+- [`NOTIFY_EMAIL`](#notify-email)
+- [`LOG_DIR`](#log-dir)
+- [`LOG_FILENAME`](#log-filename)
+- [`COMPRESS_LOGS`](#compress-logs)
+- [`MAX_ROTATIONS`](#max-rotations)
+- [`ROTATIONALS_HARD_LINK`](#rotationals-hard-link)
+- [`IDENTICALS_HARD_LINK`](#identicals-hard-link)
+- [`ROTATE_SUBDIR`](#rotate_subdir)
+- [`ALLOW_DELETIONS`](#allow-deletions)
+- [`ALLOW_OVERWRITES`](#allow-overwrites)
+- [`RSYNC_FLAGS`](#rsync-flags)
+- [`PRE_SCRIPT`,`SUCCESS_SCRIPT`,`FAILED_SCRIPT`,`FINAL_SCRIPT`](#script-options)
+- [`RUNNING_DIRNAME`](#running-dirname)
+- [`PID_FILE`](#pid-file)
+- [`RSYNC_PATH`,`COMPRESS_PATH`,`HARDLINK_PATH`,`MAIL_PATH`,`SORT_PATH`](#path-options)
+
+<a name="source-dir"></a>
 `SOURCE_DIR` The directory to create backups from. Can be local or remote
 via SSH.  
 [Required]  
@@ -136,6 +177,7 @@ SOURCE_DIR=/var/data
 SOURCE_DIR=backups@server.example.com:/path/to/files/
 ```
 
+<a name="target-dir"></a>
 `TARGET_DIR` The directory to sync to (sync type), or where to create subdirectory
 rotations (rotation type). Must be a local directory.  
 [Required]  
@@ -144,6 +186,7 @@ TARGET_DIR=/var/snyc/
 TARGET_DIR=/home/backups
 ```
 
+<a name="backup-type"></a>
 `BACKUP_TYPE` The type of backup to make. Value must be either `sync` or `rotaion`.  
 Sync jobs will make the `TARGET_DIR` exactly match the `SOURCE_DIR`, unless other
 options prevent it (see `ALLOW_DELETIONS` and `ALLOW_OVERWRITES`).  
@@ -156,20 +199,23 @@ BACKUPS_TYPE=sync
 BACKUPS_TYPE=rotation
 ```
 
+<a name="notify-email"></a>
 `NOTIFY_EMAIL` The email to send failures and notification to. If left blank,
 then no emails will be sent. Setting this is highly recommened!  
-[Deafult value is `` (blank)]  
+[Deafult value is ` ` (blank)]  
 ```
 NOTIFY_EMAIL=admin@example.com
 NOTIFY_EMAIL=root@localhost
 ```
 
+<a name="log-dir"></a>
 `LOG_DIR` The directory where log files will be saved.  
 [The default value is `/var/log/cfgbackup/`]  
 ```
 LOG_DIR=/var/log
 ```
 
+<a name="log-filename"></a>
 `LOG_FILENAME` The name of the log file to use for a job. There are three variables
 you can use in the value:  
 - `CONFNAME` The name of the config file minus the extension. e.g. 'active' for `active.conf`
@@ -181,6 +227,7 @@ LOG_FILENAME=backup_DATETIME.log
 LOG_FILENAME=cfgb_CONFNAME.log
 ```
 
+<a name="compress-logs"></a>
 `COMPRESS_LOGS` The logs generated by cfgbackup are very verbose and can grow quite large.
 Thankfully, they are also very compressible. By enabling this option, cfgbackup will check for
 old logs (over 2 days old) that match the `LOG_FILENAME` pattern for this job and compress them.
@@ -191,6 +238,7 @@ compression, set this option to 1, all other values will disable compressed logs
 COMPRESS_LOGS=1
 ```
 
+<a name="max-rotations"></a>
 `MAX_ROTATIONS` Only applies to `rotation` value of `BACKUP_TYPE`, this is the maximum number
 of rotational backups for cfgbackup to make. Note that you should probably want to set this
 number to 1 higher than the maxumim usable backups you'll want. As 1 backup might be in
@@ -201,6 +249,7 @@ want to set this to be at least 15.
 MAX_ROTATIONS=15
 ```
 
+<a name="rotationals-hard-link"></a>
 `ROTATIONALS_HARD_LINK` Only applies to `rotation` type jobs, if this value is set
 to 1, then any unchanged files between rotation backups will be hard linked together. Files that
 are hard linked together point to the same location on disk, so they don't take up extra space.
@@ -213,6 +262,7 @@ then cfgbackup will perform the hard linking instead. Enabled if set to `1`, dis
 ROTATIONALS_HARD_LINK=1
 ```
 
+<a name="identicals-hard-link"></a>
 `IDENTICALS_HARD_LINK` When enabled, searches for files with identical content within a single run
 of a backup job and hard link them together. Files that are hard linked together point to the same
 location on disk, so they don't take up extra space. This particular option requires the `hardlink`
@@ -224,6 +274,7 @@ adding extra time to how long a job takes to run. Enabled if set to `1`, disable
 IDENTICALS_HARD_LINK=1
 ```
 
+<a name="rotate_subdir"></a>
 `ROTATE_SUBDIR` Only applied to to `rotation` type jobs, this option sets the name of the
 subdirectories where the backed up files will be stored. The value must contain one rotation
 key. Valid rotation keys are:  
@@ -237,6 +288,7 @@ ROTATE_SUBDIR=backup-DATE
 ROTATE_SUBDIR=bak_NUM01
 ```
 
+<a name="allow-deletions"></a>
 `ALLOW_DELETIONS` With this option set to `1`, files may be deleted from the target backup directory if they
 are missing from the source directory. If set to `0`, then no file deletions will happen in the target directory;
 additionally, the list of files that do not exist in the source directory will be logged and emailed to
@@ -247,6 +299,7 @@ With a value of `1`, this adds the `--del` flag to the rsync command.
 ALLOW_DELETIONS=0
 ```
 
+<a name="allow-overwrites"></a>
 `ALLOW_OVERWRITES` With this option set to `1`, files may be updated/overwritten in the target backup directory if
 then differ in the source directory. If set to `0`, then no file modifications will happen in the target directory;
 additionally, the list of files that are different in the source directory will be logged and emailed to
@@ -257,6 +310,7 @@ With a value of `0`, this adds the `--ignore-existing` flag to the rsync command
 ALLOW_OVERWRITES=0
 ```
 
+<a name="rsync-flags"></a>
 `RSYNC_FLAGS` For any additional custom flag you would like passed directy to rsync. Note this only adds additional
 flags, however, you can use the `--no-OPTION` flags to negate implied flags. For example, you can pass the
 `--no-p` flag to not have rsync syncronize permissions. See the rsync manual for details: `man rsync`  
@@ -265,6 +319,7 @@ Flags always included, even when none are specified: `-av --stats`
 RSYNC_FLAGS=--exclude=.DS_Store --exclude=._*
 ```
 
+<a name="script-options"></a>
 `PRE_SCRIPT`,`SUCCESS_SCRIPT`,`FAILED_SCRIPT`,`FINAL_SCRIPT` All these script options allow for the setting
 of a script to run at a specific time during a backup job run.
  - `PRE_SCRIPT` This script will be run immediately when the backup job starts (but after config if checked/parsed), before any other run actions.
@@ -279,6 +334,7 @@ FAILED_SCRIPT=/usr/local/bin/dump-app-state
 FINAL_SCRIPT=~adminguy/gen-server-report
 ```
 
+<a name="running-dirname"></a>
 `RUNNING_DIRNAME` Only applied to to `rotation` type jobs, this option sets the name of the
 subdirectory used when running an active backup job. This should be unique and never conflict with the
 directory names generated by `ROTATE_SUBDIR`.  
@@ -287,6 +343,7 @@ directory names generated by `ROTATE_SUBDIR`.
 RUNNING_DIRNAME=backup_in_progress
 ```
 
+<a name="pid-file"></a>
 `PID_FILE` This is a file that is created in the `TARGET_DIR` whenever a backup job is run. Once the job
 completes, the file is deleted. The file contains the process id of the main cfgbackup process. For jobs
 of type `sync` this file will be ignored as cfgbackup will automatically add the rsync
@@ -296,6 +353,7 @@ flag `--exclude=/PID_FILE` to the job.
 PID_FILE=.cfgbackup.pid
 ```
 
+<a name="path-options"></a>
 `RSYNC_PATH`,`COMPRESS_PATH`,`HARDLINK_PATH`,`MAIL_PATH`,`SORT_PATH` The path options allow you to override
 the binaries for various programs used by cfgbackup. For `COMPRESS_PATH` you can change the type of compression
 used by switching the binary.
@@ -342,9 +400,9 @@ want to enable `IDENTICALS_HARD_LINKS`.
 **Manually Reseting a Job**  
 While the simplest way to fix a failed/dead job is to use the `reset` command, you can also manually
 reset a job. To reset a job:  
- - Ensure the cfgbackup and and child processes are killed
+ - Ensure the main cfgbackup process and any child processes are killed
  - Remove the `PID_FILE` from the `TARGET_DIR`
- - For rotationals, rename the `RUNNING_DIRNAME` back to be the oldest backup of your `MAX_ROTATIONS`
+ - For rotationals, rename the `RUNNING_DIRNAME` back to be the oldest backup subdir of your `MAX_ROTATIONS`
 
 
 Special Circumstances
