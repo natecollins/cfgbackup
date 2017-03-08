@@ -1,13 +1,12 @@
 cfgbackup - Simple File Backups
 ========================================
 An easy to use file backup script where each job is based around a simple config file.  
-- All backups are just files in directories, no special tools for recovery
 - Does rotational backups or simple syncing
-- Hard link unchanged files between rotational backups
-- Hard link identical files with a single backup
-- Email notifications on failure
-- Very few dependencies - only standard open source tools, like Bash and rsync
 - Detailed logging
+- Email notifications on failure
+- Backups are simply files in directories, no special tools for recovery
+- Can hard link unchanged files between rotational backups
+- Can hard link identical files with a single backup
 - Very customizable
 
 
@@ -268,7 +267,8 @@ of a backup job and hard link them together. Files that are hard linked together
 location on disk, so they don't take up extra space. This particular option requires the `hardlink`
 program is available; if `hardlink` is not found, setting this option will prevent the job from running.
 Note that running `hardlink` runs as a separate process after the rsync process has completed, thus
-adding extra time to how long a job takes to run. Enabled if set to `1`, disabled otherwise.  
+adding extra time to how long a job takes to run. With large backups, this can potentially take a very
+long time. Enabled if set to `1`, disabled otherwise.  
 [Default value of `0`]  
 ```
 IDENTICALS_HARD_LINK=1
@@ -485,10 +485,15 @@ RSYNC_PATH=/sw/bin/rsync
 SORT_PATH=/sw/bin/sort
 ```
 
+**Running on a Windows**  
+You _should_ be able to run cfgbackup without any problems using either Cygwin or
+Windows Subsystem for Linux (aka Ubuntu on Windows), as long as you install the required
+dependencies.  
+
 
 Author and License
 ------------------------
-by Nathan Collins <npcollins@ gmail.com>  
+Copyright (c) 2017 by Nathan Collins [npcollins@ gmail.com]  
 
 Released under the MIT License
 
