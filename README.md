@@ -16,6 +16,7 @@ Quick Links
 * [Basic Usage](#basic-usage)
 * [Commands](#commands)
 * [Config Options](#config-options)
+* [Automating Backups via Cron](#automating-backups-via-cron)
 * [More Information](#more-information)
 * [Special Circumstances](#special-circumstances)
 * [Author and License](#author-and-license)
@@ -81,7 +82,7 @@ Commands
 
 <a name="command-check"></a>
 **Check Command**  
-The `check` command will check the config passed for errors.  
+The `check` command will parse the config, checking for errors.  
 ```
 ./cfgbackup alpha.conf check
 ```
@@ -363,6 +364,67 @@ COMPRESS_PATH=bzip2
 HARDLINK_PATH=/usr/local/bin/hardlink
 MAIL_PATH=/usr/local/bin/mailx
 SORT_PATH=/usr/local/bin/gsort
+```
+
+
+Automating Backups via Cron
+------------------------
+The recommended way of automating backup jobs is via cron. For those unfamiliar with cron, it provides a
+way to schedule commands to run at regular intervals. Cron tasks can be entered in a
+system-wide file, `/etc/crontab`, or on a per-user basis with the `crontab` command. The word "crontab" is
+short for "cron table", which means a text file with tablular contents to list commands to run at certain times.
+Using the system-wide crontab is a good idea for backup jobs on multi-user systems, like servers, so that
+other users are aware of the backup job without having to check other peoples personal crontab.  
+
+**System Crontab (Recommended)**  
+Example crontab entries for `/etc/crontab`:
+```
+# m  h  dom mon dow  user       command
+ 30  9  *   *   *    gerald     /usr/local/scripts/report_for_gerald.sh
+
+# webspace hourly backups; runs every hour at 5 minutes into the hour
+ 5   *  *   *   *    root       cfgbackup /etc/cfgbackup/webspace_hourly.conf run
+
+# webspace hourly backups: runs every day at 11:30pm
+ 30  23 *   *   *    root       cfgbackup /etc/cfgbackup/webspace_daily.conf run
+```
+
+As you'll notice, each line is broken up into columns, with each column delimited by spaces or tabs. The columns
+do not have to line up horizontally, but it's a good idea to do so if you want to keep your crontab file readable.
+To keep track of tasks, it's a good idea to also add a comment about your entries describing what it does. Comments
+are created using the `#` character; anything after a `#` is considered a command and ignored by cron.  
+
+The columns in crontab are, in order:  
+ - `m` The minute of the hour on which to run, or `*` to run every minute
+ - `h` The hour of the day (from `0` to `23`) on which to run, or `*` to run every hour
+ - `dom` The day of the month on which to run, or `*` to run every day
+ - `mon` The month of the year on which to run, or `*` to run every month
+ - `dow` The day of the week on which to run, or `*` to run every day
+ - `user` Run the command as if this user running it
+ - `command` The command to run
+
+**Personal Crontab**  
+If you don't have access to the `/etc/crontab` file, you can use the `crontab` command to load or edit a crontab
+file for your user. The format is almost exactly the same as `/etc/crontab` except there is no `user` column. All
+commands started from a user's crontab are always run by that user's account.  
+
+Example crontab entries for a user's crontab:  
+```
+# m  h  dom mon dow  command
+ 30  8  *   *   *    /home/gerald/scripts/morning_schedule.sh
+ 0   13 *   *   *    /home/gerald/scripts/afternoon_schedule.sh
+
+# document directory rotation
+ 45  *  *   *   *    cfgbackup /home/gerald/cfgbackup/documents_rotate.conf run
+```
+
+To edit a user crontab file in-place, run `crontab -e`; this will allow you to edit the file in a terminal
+text editor.  
+
+If you already have a crontab written in another file, you can load it into your crontab by
+just passing it to the `crontab` command:  
+```
+crontab load_file.txt
 ```
 
 
