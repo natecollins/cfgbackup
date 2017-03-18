@@ -33,10 +33,20 @@ Dependencies
 - hardlink (recommended)
 
 
+Installation
+------------------------
+Installation can be as simple as downloading the `cfgbackup` script, setting the execute flag, and placing it in a logical
+place, like `/usr/local/bin/`. You'll likely want to grab a copy of the `example.conf` file as well, to use as a template
+for creating backup jobs.  
+
+For Debian based Linux distributions, you can use the `build/build-deb` script to create a `.deb` package, then install
+that with `dpkg` like any other package.  
+
+
 Basic Usage
 ------------------------
 There are two basic types of backup jobs `cfgbackup` can do: `rotation` and `sync`  
- - `rotation` jobs create a series of backups rotations in subdirs of the target dir
+ - `rotation` jobs create a series of backup rotations in subdirs of the target dir
  - `sync` jobs syncronize a directory from one location to another
 
 Each backup job has it's own config file. Provided is an sample config called `example.conf`;
@@ -560,7 +570,7 @@ SORT_PATH=/sw/bin/sort
 **Running on a Windows**  
 You _should_ be able to run cfgbackup without any problems using either Cygwin or
 Windows Subsystem for Linux (aka Ubuntu on Windows), as long as you install the required
-dependencies.  
+dependencies. However, this functionality has not been tested.  
 
 
 Author and License
