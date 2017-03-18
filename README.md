@@ -322,15 +322,16 @@ RSYNC_FLAGS=--exclude=.DS_Store --exclude=._*
 
 <a name="script-options"></a>
 `PRE_SCRIPT`,`SUCCESS_SCRIPT`,`FAILED_SCRIPT`,`FINAL_SCRIPT` All these script options allow for the setting
-of a script to run at a specific time during a backup job run.
+of a script to run at a specific time during a backup job run. What you enter will be evaluated as a shell command,
+so placing multiple commands together and using pipes will also work.  
  - `PRE_SCRIPT` This script will be run immediately when the backup job starts (but after config if checked/parsed), before any other run actions.
  - `SUCCESS_SCRIPT` Runs this script after the backup job has completed if rsync returns an exit code of 0; also waits until after hardlinks are created if `IDENTICALS_HARD_LINK` is set to 1.
  - `FAILED_SCRIPT` Runs this script immediate after rsync if rsync returns an exit code other than 0.
  - `FINAL_SCRIPT` This script runs as the last thing before the cfgbackup run job ends, regardless of success or failure.
-All scripts specified will cause the backup job to abort if they return a non 0 exit code.  
+Any scripts specified will cause the backup job to send a failure email if they return a non 0 exit code.  
 ```
 PRE_SCRIPT=/usr/local/bin/app-cache --clear
-SUCCESS_SCRIPT=service myapp restart
+SUCCESS_SCRIPT=service myapp restart; service apache2 restart
 FAILED_SCRIPT=/usr/local/bin/dump-app-state
 FINAL_SCRIPT=~adminguy/gen-server-report
 ```

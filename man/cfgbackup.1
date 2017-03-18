@@ -133,8 +133,8 @@ Add extra flags to the main rsync backup process.
 
 .TP
 .B PRE_SCRIPT, SUCCESS_SCRIPT, FAILED_SCRIPT, FINAL_SCRIPT
-Script options, when specified, run at specific times of a backup job. Script must return
-an exit code of 0, or the backup job will be aborted.
+Script options, when specified, run at specific times of a backup job. If a script returns
+an exit code other than 0, a failure notificaiton email will be sent.
 .IP
 .B PRE_SCRIPT
 runs immediately when the backup job starts, before any other run actions.

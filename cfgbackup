@@ -893,18 +893,32 @@ command_status() {
     if status_is_running; then
         PID_NUM=$( cat $PID_FULL )
     fi
+    rotate_get_dirs
+    LAST_BACKUP_DIR=$( rotate_current_backup )
+    LAST_BACKUP_DIR=$( epath_join ${CONFIG[TARGET_DIR]} $LAST_BACKUP_DIR )
+
+    if [[ ${CONFIG[BACKUP_TYPE]} == "sync" ]]; then
+        LAST_BACKUP_DIR=$RUN_DIR
+    fi
 
     echo "======= cfgbackup job status ======="
-    echo "Config:               $CONFIG_FILE"
+    echo "Config:               $( basename $CONFIG_FILE )"
     echo "Type:                 ${CONFIG[BACKUP_TYPE]}"
     echo "Status:               $CONFIG_STAT"
     echo "Started:              $JOB_STARTED"
     echo "Process ID:           $PID_NUM"
+    if [[ ! -z $LAST_BACKUP_DIR ]]; then
+        if [[ ${CONFIG[BACKUP_TYPE]} != "sync" ]]; then
+            echo "Last complete job:    $( basename $LAST_BACKUP_DIR)"
+        fi
+        echo "Last complete time:   $( date -r $LAST_BACKUP_DIR +%Y-%m-%d\ %H:%M:%S )"
+    fi
     echo ""
     LAST_LOGFILE=$( log_last_file )
     if [[ ! -z $LAST_LOGFILE ]]; then
-        echo "Last log messages:"
-        tail -n 4 $( log_last_file )
+        echo "Log file:             $( basename $LAST_LOGFILE )"
+        echo "Latest log messages:"
+        tail -n 4 $LAST_LOGFILE | sed 's/^/  /'
     fi
 }
 
@@ -943,7 +957,7 @@ command_end() {
 
 ###############################
 ## Run given script specified by the config, or do nothing if no script was set
-## Will fail job if script returns non 0 exit code
+## Will send email notice if script returns non 0 exit code
 ##  $1 -> Name of config script line to find
 command_runscript() {
     ALLOWED_SCRIPTS=( PRE_SCRIPT SUCCESS_SCRIPT FAILED_SCRIPT FINAL_SCRIPT )
@@ -951,13 +965,14 @@ command_runscript() {
     FOUND_SCPT=$?
     if [[ $FOUND_SCPT -eq 0 && ! -z ${CONFIG[$1]} ]]; then
         log_entry "| Running $1: ${CONFIG[$1]}"
-        SCRIPT_OUT=$( ${CONFIG[$1]} >> $LOG_FILE 2>&1 )
+        SCRIPT_OUT=$( {
+            eval "${CONFIG[$1]}"
+        } >> $LOG_FILE 2>&1 )
         SCRIPT_RET=$?
         if [[ $SCRIPT_RET -ne 0 ]]; then
             log_entry "| Script returned exit code: $SCRIPT_RET"
             # Send notify email about script failure
-            mailer "${CONFIG[NOTIFY_EMAIL]}" "cfgbackup job '${CONF_NAME}' failed running $1" "The $1 ( ${CONFIG[$1]} ) for job '${CONF_NAME}' failed with exit code ${SCRIPT_RET}."
-            exit 1
+            mailer "${CONFIG[NOTIFY_EMAIL]}" "cfgbackup job '${CONF_NAME}' had $1 script failure" "The $1 ( ${CONFIG[$1]} ) for job '${CONF_NAME}' failed with exit code ${SCRIPT_RET}. See logs for details."
         fi
     fi
 }
@@ -1056,7 +1071,7 @@ runjob_rotation() {
             # the previous backup dir; version 3.1.0 and later works with just the link-dest flag above
             if ! rsync_gte_310; then
                 log_entry "| Old version of rsync detected, consider upgrading! Manually linking from previous rotation..."
-                pushd ${PREV_BACKUP_PATH}
+                pushd ${PREV_BACKUP_PATH} > /dev/null
                 if [[ $? -eq 0 ]]; then
                     # Create missing directories in RUN_DIR
                     # Compare files between PREV_BACKUP and RUN_DIR, hard link if different
@@ -1071,7 +1086,7 @@ runjob_rotation() {
                             -exec ln -f {} ${RUN_DIR}/{} \; \
                         \) \
                     \)
-                    popd
+                    popd > /dev/null
                 fi
             fi
         fi
