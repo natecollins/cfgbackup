@@ -146,7 +146,14 @@ runs after completion of rsync command (and hardlink process, if enabled), but o
 runs after completion of rsync command, but only if rsync returns a non 0 exit code.
 .IP
 .B FINAL_SCRIPT
-runs as the last thing before the cfgbackup run job ends, regardless of success or failure.
+runs as the last thing before the cfgbackup run job ends, regardless of success or failure of rsync.
+
+.TP
+.B PRE_SCRIPT_ERROR_EXIT
+If set to 1, this will require the pre-script to have an exit code of 0, otherwise
+the backup job will send a failure notification then immediately exit.
+.IP
+Default: 0
 
 .TP
 .B RUNNING_DIRNAME

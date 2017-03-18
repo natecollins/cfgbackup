@@ -339,6 +339,7 @@ default_config() {
     CONFIG[SUCCESS_SCRIPT]=
     CONFIG[FAILED_SCRIPT]=
     CONFIG[FINAL_SCRIPT]=
+    CONFIG[PRE_SCRIPT_ERROR_EXIT]=0
     CONFIG[PID_FILE]=.cfgbackup.pid
     CONFIG[RSYNC_PATH]=rsync
     CONFIG[MAIL_PATH]=mail
@@ -935,7 +936,7 @@ command_run() {
     fi
 
     # Record run pid in target dir cfgbackup.pid file
-    log_entry "JOB STARTED:  $( date +%Y-%m-%d\ %H:%M:%S )"
+    log_entry "| JOB STARTED:  $( date +%Y-%m-%d\ %H:%M:%S )"
     command_runscript PRE_SCRIPT
     if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
         runjob_rotation
@@ -949,8 +950,7 @@ command_run() {
 ###############################
 ## End job and clean up the pid file
 command_end() {
-    log_entry "JOB ENDED: $( date +%Y-%m-%d\ %H:%M:%S )"
-    log_entry ""
+    log_entry "| JOB ENDED: $( date +%Y-%m-%d\ %H:%M:%S )"
     # Cleanup by removing cfgbackup.pid file
     rm $PID_FULL
 }
@@ -973,6 +973,11 @@ command_runscript() {
             log_entry "| Script returned exit code: $SCRIPT_RET"
             # Send notify email about script failure
             mailer "${CONFIG[NOTIFY_EMAIL]}" "cfgbackup job '${CONF_NAME}' had $1 script failure" "The $1 ( ${CONFIG[$1]} ) for job '${CONF_NAME}' failed with exit code ${SCRIPT_RET}. See logs for details."
+            if [[ $1 == "PRE_SCRIPT" && ${CONFIG[PRE_SCRIPT_ERROR_EXIT]} -eq 1 ]]; then
+                log_entry "| PRE_SCRIPT failed and PRE_SCRIPT_ERROR_EXIT is set; exiting."
+                log_entry "| JOB ENDED: $( date +%Y-%m-%d\ %H:%M:%S )"
+                exit 1
+            fi
         fi
     fi
 }

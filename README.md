@@ -163,6 +163,7 @@ Config Options
 - [`ALLOW_OVERWRITES`](#allow-overwrites)
 - [`RSYNC_FLAGS`](#rsync-flags)
 - [`PRE_SCRIPT`,`SUCCESS_SCRIPT`,`FAILED_SCRIPT`,`FINAL_SCRIPT`](#script-options)
+- [`PRE_SCRIPT_ERROR_EXIT`](#pre-script-error-exit)
 - [`RUNNING_DIRNAME`](#running-dirname)
 - [`PID_FILE`](#pid-file)
 - [`RSYNC_PATH`,`COMPRESS_PATH`,`HARDLINK_PATH`,`MAIL_PATH`,`SORT_PATH`](#path-options)
@@ -327,13 +328,21 @@ so placing multiple commands together and using pipes will also work.
  - `PRE_SCRIPT` This script will be run immediately when the backup job starts (but after config if checked/parsed), before any other run actions.
  - `SUCCESS_SCRIPT` Runs this script after the backup job has completed if rsync returns an exit code of 0; also waits until after hardlinks are created if `IDENTICALS_HARD_LINK` is set to 1.
  - `FAILED_SCRIPT` Runs this script immediate after rsync if rsync returns an exit code other than 0.
- - `FINAL_SCRIPT` This script runs as the last thing before the cfgbackup run job ends, regardless of success or failure.
+ - `FINAL_SCRIPT` This script runs as the last thing before the cfgbackup run job ends, regardless of success or failure of rsync.
 Any scripts specified will cause the backup job to send a failure email if they return a non 0 exit code.  
 ```
 PRE_SCRIPT=/usr/local/bin/app-cache --clear
 SUCCESS_SCRIPT=service myapp restart; service apache2 restart
 FAILED_SCRIPT=/usr/local/bin/dump-app-state
 FINAL_SCRIPT=~adminguy/gen-server-report
+```
+
+<a name="pre-script-error-exit"></a>
+`PRE_SCRIPT_ERROR_EXIT` If set to 1, this will require the `PRE_SCRIPT` to have an exit code of 0,
+otherwise the backup job will send a failure notification and then immediately exit.  
+[Default value of `0`]  
+```
+PRE_SCRIPT_ERROR_EXIT=1
 ```
 
 <a name="running-dirname"></a>
