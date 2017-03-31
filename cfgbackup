@@ -896,7 +896,9 @@ command_status() {
     fi
     rotate_get_dirs
     LAST_BACKUP_DIR=$( rotate_current_backup )
-    LAST_BACKUP_DIR=$( epath_join ${CONFIG[TARGET_DIR]} $LAST_BACKUP_DIR )
+    if [[ ! -z $LAST_BACKUP_DIR ]]; then
+        LAST_BACKUP_DIR=$( epath_join ${CONFIG[TARGET_DIR]} $LAST_BACKUP_DIR )
+    fi
 
     if [[ ${CONFIG[BACKUP_TYPE]} == "sync" ]]; then
         LAST_BACKUP_DIR=$RUN_DIR
@@ -910,7 +912,7 @@ command_status() {
     echo "Process ID:           $PID_NUM"
     if [[ ! -z $LAST_BACKUP_DIR ]]; then
         if [[ ${CONFIG[BACKUP_TYPE]} != "sync" ]]; then
-            echo "Last complete job:    $( basename $LAST_BACKUP_DIR)"
+            echo "Last complete job:    $( basename $LAST_BACKUP_DIR )"
         fi
         echo "Last complete time:   $( date -r $LAST_BACKUP_DIR +%Y-%m-%d\ %H:%M:%S )"
     fi

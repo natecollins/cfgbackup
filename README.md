@@ -13,6 +13,7 @@ An easy to use file backup script where each job is based around a simple config
 Quick Links
 ------------------------
 * [Dependencies](#dependencies)
+* [Installation](#installation)
 * [Basic Usage](#basic-usage)
 * [Commands](#commands)
 * [Config Options](#config-options)

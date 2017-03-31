@@ -77,6 +77,7 @@ gzip -f "$DIST_DIR/data/usr/share/man/man1/cfgbackup.1"
 mkdir -p "$DIST_DIR/data/etc/cfgbackup/"
 cp "$SRC_DIR/example.conf" "$DIST_DIR/data/etc/cfgbackup"
 mkdir -p "$DIST_DIR/data/var/log/cfgbackup/"
+chmod 750 "$DIST_DIR/data/var/log/cfgbackup/"
 cd "$DIST_DIR/data"
 tar -czvf ../data.tar.gz ./
 cd "$BUILD_DIR"
