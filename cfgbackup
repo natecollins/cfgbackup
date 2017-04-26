@@ -346,6 +346,7 @@ default_config() {
     CONFIG[HARDLINK_PATH]=hardlink
     CONFIG[SORT_PATH]=sort
     CONFIG[COMPRESS_PATH]=gzip
+    CONFIG[MIRROR_PREFIX]=.cfgbackup.mirror
 }
 
 ###############################
@@ -388,8 +389,8 @@ parse_config() {
         if [[ ${CONFIG[TARGET_DIR]} == "" ]]; then
             PARSE_ERRORS+=("Missing required value for TARGET_DIR.")
         fi
-        if ! [[ ${CONFIG[BACKUP_TYPE]} == "sync" ||  ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
-            PARSE_ERRORS+=("Invalid value for BACKUP_TYPE; must be sync or rotation.")
+        if ! [[ ${CONFIG[BACKUP_TYPE]} == "sync" ||  ${CONFIG[BACKUP_TYPE]} == "rotation" || ${CONFIG[BACKUP_TYPE]} == "mirror" ]]; then
+            PARSE_ERRORS+=("Invalid value for BACKUP_TYPE; must be sync, rotation, or mirror.")
         fi
         if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" && ( ! ${CONFIG[MAX_ROTATIONS]} =~ ^[0-9]+$ || ${CONFIG[MAX_ROTATIONS]} -lt 2 ) ]]; then
             PARSE_ERRORS+=("Value of MAX_ROTATIONS must be an integer greater than 1 for rotation backups.")
@@ -944,6 +945,8 @@ command_run() {
         runjob_rotation
     elif [[ ${CONFIG[BACKUP_TYPE]} == "sync" ]]; then
         runjob_sync
+    elif [[ ${CONFIG[BACKUP_TYPE]} == "mirror" ]]; then
+        runjob_mirror
     fi
     command_runscript FINAL_SCRIPT
     command_end
@@ -1180,6 +1183,54 @@ $SKIP_RESULTS
     fi
 }
 
+###############################
+## Run a mirror job
+runjob_mirror() {
+    echo $$ > $PID_FULL
+    log_entry "| Job type: mirror"
+    MIRROR_SRC=$( escaped_rsync_source )
+
+    RSYNC_FLAGS="-av --stats ${CONFIG[RSYNC_FLAGS]}"
+    if [[ ${CONFIG[ALLOW_DELETIONS]} == "1" ]]; then
+        RSYNC_FLAGS="$RSYNC_FLAGS --del"
+    fi
+    if [[ ${CONFIG[ALLOW_OVERWRITES]} == "0" ]]; then
+        RSYNC_FLAGS="$RSYNC_FLAGS --ignore-existing"
+    fi
+    SRC_LIST_FILE=${MIRROR_PREFIX}.source
+    TGT_LIST_FILE=${MIRROR_PREFIX}.target
+    # Exclude PID_FILE and mirror files from being synced
+    RSYNC_FLAGS="${RSYNC_FLAGS} --exclude=/${PID_FILE} --exclude=/${SRC_LIST_FILE} --exclude=/${TGT_LIST_FILE}"
+
+    MIRROR_FAILURE=1
+
+    # Build source file list
+
+    # Build target file list
+
+    # Identify files removed from source
+
+    # Identify files removed from target
+
+    # Remove missing source files from target, and new target file list
+
+    # Remove missing target files from source, and new source file list
+
+    # Update target from source
+
+    # Update source from target
+
+    # Save mirror file state listings
+
+    # Run post-rsync scripts
+    if [[ $MIRROR_FAILURE -eq 0 ]]; then
+        log_entry "| Mirror job failed due to previous errors"
+        command_runscript FAILED_SCRIPT
+    else
+        command_runscript SUCCESS_SCRIPT
+    fi
+}
+
 #######################################
 # RESET COMMAND
 #######################################
@@ -1281,7 +1332,7 @@ command_reset() {
 command_list() {
     # On sync job, report and exit
     if [[ ${CONFIG[BACKUP_TYPE]} != "rotation" ]]; then
-        echo "Job '${CONF_NAME}' is a sync job. Backup lists only exist for rotation jobs."
+        echo "Job '${CONF_NAME}' is not a rotation job. Backup lists only exist for rotation jobs."
         return
     fi
 
