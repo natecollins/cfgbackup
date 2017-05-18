@@ -744,15 +744,49 @@ rotate_complete_num() {
 }
 
 #######################################
+# MIRROR SUPPORT FUNCTIONS
+#######################################
+
+###############################
+## Create a listing of all files in a directory
+##  $1 -> Either a local directory path or an remote SSH directory location
+## Outputs list of files
+mirror_create_filelist() {
+    local FSETDIR="$1"
+    local FILELIST_CMD=""
+    dirpath_is_remote "${FSETDIR}"
+    local DP_REMOTE=$?
+    if [[ $DP_REMOTE == 0 ]]; then
+        local COLON_IDX=$( substr_index "${FSETDIR}" ":" )+1
+        local SSH_CONNECT=${FSETDIR:0:$COLON_IDX}
+        FSETDIR=${FSETDIR:1+$COLON_IDX}
+        # Add ssh connection prefix
+        FILELIST_CMD="ssh -o BatchMode=yes $SSH_CONNECT"
+    fi
+    # Listing creation command
+    FILELIST_CMD="$FILELIST_CMD find $FSETDIR -exec ls -dn --full-time {} \; | awk '/^total/ {next}; { gsub(\"$FSETDIR\",\"\",\$9); printf(\"%s%s %s \",\$6,\$7,\$5); for (i=9;i<=NF;i++) printf(\"%s \",\$i); printf(\"\\n\"); }'"
+
+    # Run command
+    eval $FILELIST_CMD
+    FILELIST_EXIT=$?
+    if [[ $FILELIST_EXIT != 0 ]]; then
+        echo "ERROR: Failed to generate mirror file listing from: $1"
+        exit 1
+    fi
+}
+
+#######################################
 # CHECK CONFIG FILE OPTIONS
 #######################################
 
 ###############################
-## Check if source directory is remote
+## Check if directory path indicates it is remote
+##  $1 -> Path to directory
 ## Return 0 if remote; 1 otherwise
-source_is_remote() {
-    local COLON_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" ":" )
-    local SLASH_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" "/" )
+dirpath_is_remote() {
+    DIRPATH="$1"
+    local COLON_IDX=$( substr_index "${DIRPATH}" ":" )
+    local SLASH_IDX=$( substr_index "${DIRPATH}" "/" )
     if [[ $COLON_IDX -ge "0" && $COLON_IDX -lt $SLASH_IDX ]]; then
         return 0
     fi
@@ -770,7 +804,7 @@ command_check() {
     fi
 
     # Test source access
-    source_is_remote
+    dirpath_is_remote "${CONFIG[SOURCE_DIR]}"
     if [[ $? == 0 ]]; then
         local COLON_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" ":" )+1
         local SSH_CONNECT=${CONFIG[SOURCE_DIR]:0:$COLON_IDX}
@@ -1009,7 +1043,7 @@ hardlink_identicals() {
 ## Output the escaped path
 escaped_rsync_source() {
     ESCPATH=$( epath_join ${CONFIG[SOURCE_DIR]} )
-    source_is_remote
+    dirpath_is_remote "${CONFIG[SOURCE_DIR]}"
     if [[ $? == 0 ]]; then
         local COLON_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" ":" )+1
         local SSH_CONNECT=${CONFIG[SOURCE_DIR]:0:$COLON_IDX}
@@ -1205,10 +1239,12 @@ runjob_mirror() {
     MIRROR_FAILURE=1
 
     # Build source file list
-
+    SRC_LIST_NEW=$( mirror_create_filelist $MIRROR_SRC )
     # Build target file list
+    TGT_LIST_NEW=$( mirror_create_filelist $RUN_DIR )
 
     # Identify files removed from source
+    #TODO
 
     # Identify files removed from target
 
