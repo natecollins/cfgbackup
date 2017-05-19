@@ -329,6 +329,7 @@ default_config() {
     CONFIG[BACKUP_TYPE]=
     CONFIG[ROTATE_SUBDIR]=backup-NUM1
     CONFIG[RUNNING_DIRNAME]=backup-running
+    CONFIG[MIRROR_CONFLICT_ACTION]=update
     CONFIG[ALLOW_DELETIONS]=1
     CONFIG[ALLOW_OVERWRITES]=1
     CONFIG[MAX_ROTATIONS]=
@@ -394,6 +395,9 @@ parse_config() {
         fi
         if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" && ( ! ${CONFIG[MAX_ROTATIONS]} =~ ^[0-9]+$ || ${CONFIG[MAX_ROTATIONS]} -lt 2 ) ]]; then
             PARSE_ERRORS+=("Value of MAX_ROTATIONS must be an integer greater than 1 for rotation backups.")
+        fi
+        if [[ ${CONFIG[BACKUP_TYPE]} == "mirror" && ${CONFIG[MIRROR_CONFLICT_ACTION]} != "update" && ${CONFIG[MIRROR_CONFLICT_ACTION]} != "delete" ]]; then
+            PARSE_ERRORS+=("Value of MIRROR_CONFLICT_ACTION must be either update or delete.")
         fi
         # Ensure ROTATE_SUBDIR is valid
         if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
@@ -764,7 +768,7 @@ mirror_create_filelist() {
         FILELIST_CMD="ssh -o BatchMode=yes $SSH_CONNECT"
     fi
     # Listing creation command
-    FILELIST_CMD="$FILELIST_CMD find $FSETDIR -exec ls -dn --full-time {} \; | awk '/^total/ {next}; { gsub(\"$FSETDIR\",\"\",\$9); printf(\"%s%s %s \",\$6,\$7,\$5); for (i=9;i<=NF;i++) printf(\"%s \",\$i); printf(\"\\n\"); }'"
+    FILELIST_CMD="$FILELIST_CMD find $FSETDIR -exec ls -dn --quoting-style=escape --full-time {} \; | awk '/^total/ {next}; { gsub(\"$FSETDIR\",\"./\",\$9); printf(\"%s%s %s\",\$6,\$7,\$5); for (i=9;i<=NF;i++) printf(\" %s\",\$i); printf(\"\\n\"); }'"
 
     # Run command
     eval $FILELIST_CMD
@@ -1238,24 +1242,32 @@ runjob_mirror() {
 
     MIRROR_FAILURE=1
 
-    # Build source file list
+
+    # Load old file lists
+    SRC_LIST_OLD=$( cat ${RUN_DIR}/${SRC_LIST_FILE} 2> /dev/null )
+    SRC_LIST_EXISTS=$?
+    TGT_LIST_OLD=$( cat ${RUN_DIR}/${TGT_LIST_FILE} 2> /dev/null )
+    TGT_LIST_EXISTS=$?
+
+    # Build new file lists
     SRC_LIST_NEW=$( mirror_create_filelist $MIRROR_SRC )
-    # Build target file list
     TGT_LIST_NEW=$( mirror_create_filelist $RUN_DIR )
 
-    # Identify files removed from source
-    #TODO
+    # If list file(s) was missing, then skip all changes
+    if [[ $SRC_LIST_EXISTS -eq 0 || $TGT_LIST_EXISTS -eq 0 ]]; then
+        # Identify files removed from source
+        #TODO
 
-    # Identify files removed from target
+        # Identify files removed from target
 
-    # Remove missing source files from target, and new target file list
+        # Remove missing source files from target, and new target file list
 
-    # Remove missing target files from source, and new source file list
+        # Remove missing target files from source, and new source file list
 
-    # Update target from source
+        # Update target from source
 
-    # Update source from target
-
+        # Update source from target
+    fi
     # Save mirror file state listings
 
     # Run post-rsync scripts
