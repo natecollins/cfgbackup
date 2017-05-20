@@ -767,8 +767,15 @@ mirror_create_filelist() {
         # Add ssh connection prefix
         FILELIST_CMD="ssh -o BatchMode=yes $SSH_CONNECT"
     fi
+
+    # Don't include cfgbackup files
+    SRC_LIST_FILE=${MIRROR_PREFIX}.source
+    TGT_LIST_FILE=${MIRROR_PREFIX}.target
+
     # Listing creation command
-    FILELIST_CMD="$FILELIST_CMD find $FSETDIR -exec ls -dn --quoting-style=escape --full-time {} \; | awk '/^total/ {next}; { gsub(\"$FSETDIR\",\"./\",\$9); printf(\"%s%s %s\",\$6,\$7,\$5); for (i=9;i<=NF;i++) printf(\" %s\",\$i); printf(\"\\n\"); }'"
+    FIND_SUBCMD="find $FSETDIR ! -path $PID_FULL ! -path $FSETDIR/$TGT_LIST_FILE ! -path $FSETDIR/$SRC_LIST_FILE -exec ls -dn --quoting-style=escape --full-time {} \;"
+    AWK_SUBCMD="awk '/^total/ {next}; { gsub(\"$FSETDIR\",\"./\",\$9); printf(\"%s%s %s\",\$6,\$7,\$5); for (i=9;i<=NF;i++) printf(\" %s\",\$i); printf(\"\\n\"); }'"
+    FILELIST_CMD="$FILELIST_CMD $FIND_SUBCMD | $AWK_SUBCMD"
 
     # Run command
     eval $FILELIST_CMD
@@ -1237,16 +1244,20 @@ runjob_mirror() {
     fi
     SRC_LIST_FILE=${MIRROR_PREFIX}.source
     TGT_LIST_FILE=${MIRROR_PREFIX}.target
+    SRC_LIST_FULL=${RUN_DIR}/${SRC_LIST_FILE}
+    TGT_LIST_FULL=${RUN_DIR}/${TGT_LIST_FILE}
     # Exclude PID_FILE and mirror files from being synced
     RSYNC_FLAGS="${RSYNC_FLAGS} --exclude=/${PID_FILE} --exclude=/${SRC_LIST_FILE} --exclude=/${TGT_LIST_FILE}"
 
     MIRROR_FAILURE=1
 
+    # Record start time (to identify new files/modifications made since we started)
+    MIRROR_STARTTIME=$( date --utc '+%Y-%m-%d %T.%N' )
 
     # Load old file lists
-    SRC_LIST_OLD=$( cat ${RUN_DIR}/${SRC_LIST_FILE} 2> /dev/null )
+    SRC_LIST_OLD=$( cat $SRC_LIST_FULL 2> /dev/null )
     SRC_LIST_EXISTS=$?
-    TGT_LIST_OLD=$( cat ${RUN_DIR}/${TGT_LIST_FILE} 2> /dev/null )
+    TGT_LIST_OLD=$( cat $TGT_LIST_FULL 2> /dev/null )
     TGT_LIST_EXISTS=$?
 
     # Build new file lists
@@ -1264,11 +1275,17 @@ runjob_mirror() {
 
         # Remove missing target files from source, and new source file list
 
+        # On conflict (both updated and deleted), resolve by MIRROR_CONFLICT_ACTION setting
+
         # Update target from source
 
         # Update source from target
     fi
     # Save mirror file state listings
+    echo "$SRC_LIST_NEW" > $SRC_LIST_FULL
+    touch --date=${MIRROR_STARTTIME} $SRC_LIST_FULL
+    echo "$TGT_LIST_NEW" > $TGT_LIST_FULL
+    touch --date=${MIRROR_STARTTIME} $TGT_LIST_FULL
 
     # Run post-rsync scripts
     if [[ $MIRROR_FAILURE -eq 0 ]]; then
