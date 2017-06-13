@@ -881,9 +881,9 @@ command_status() {
     if status_is_running; then
         CONFIG_STAT="running"
     elif status_is_failed; then
-        CONFIG_FILE="failed - see log"
+        CONFIG_STAT="failed - see log"
     elif status_is_dead; then
-        CONFIG_FILE="process died uncleanly"
+        CONFIG_STAT="process died uncleanly"
     fi
 
     JOB_STARTED="-"
@@ -1045,6 +1045,11 @@ runjob_sync() {
     else
         hardlink_identicals
         command_runscript SUCCESS_SCRIPT
+    fi
+
+    # If ALLOW_DELETIONS or ALLOW_OVERWRITES is 0, check for skipped files
+    if [[ ${CONFIG[ALLOW_DELETIONS]} == "0" || ${CONFIG[ALLOW_OVERWRITES]} == "0" ]]; then
+        runjob_skipped_files
     fi
 
     # Update timestamp of target dir to indicate backup time
