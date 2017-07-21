@@ -763,14 +763,14 @@ source_is_remote() {
 command_check() {
     # Test log access
     log_can_write
-    if [[ $? != 0 ]]; then
+    if [[ $? -ne 0 ]]; then
         echo "ERROR: Cannot write to log directory of ${CONFIG[LOG_DIR]}"
         exit 1
     fi
 
     # Test source access
     source_is_remote
-    if [[ $? == 0 ]]; then
+    if [[ $? -eq 0 ]]; then
         local COLON_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" ":" )+1
         local SSH_CONNECT=${CONFIG[SOURCE_DIR]:0:$COLON_IDX}
         local SSH_SOURCE=${CONFIG[SOURCE_DIR]:1+$COLON_IDX}
@@ -782,8 +782,8 @@ command_check() {
         fi
 
         # Check remote directory
-        ssh -o BatchMode=yes $SSH_CONNECT [[ ! -d $SSH_SOURCE || ! -r $SSH_SOURCE ]]
-        if [[ $? != 0 ]]; then
+        ssh -o BatchMode=yes $SSH_CONNECT "[[ ! -d $SSH_SOURCE || ! -r $SSH_SOURCE ]]"
+        if [[ $? -eq 0 ]]; then
             echo "ERROR: Cannot read from remote source directory of ${SSH_SOURCE}"
             exit 1
         fi
@@ -1170,7 +1170,7 @@ Skipped ${SKIP_COUNT} files from being altered based off limitations set in the 
 
 For specifics, see the log file at:
   ${LOG_FILE}"
-    elif [[ $SKIP_COUNT -gt 0 ]]; then
+    elif [[ -n $SKIP_RESULTS && $SKIP_COUNT -gt 0 ]]; then
         # Send list of skipped files in the email
         SKIP_RESULTS="
 Skipped ${SKIP_COUNT} files from being altered based off limitations set in the '${CONF_FILE_BASE}' config file.
