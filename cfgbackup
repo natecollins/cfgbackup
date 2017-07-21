@@ -21,7 +21,7 @@
 # SOFTWARE.
 ################################################################################
 
-VERSION=0.3.0
+VERSION=0.4.0
 
 #######################################
 # MISC HELPER FUNCTIONS
@@ -772,8 +772,10 @@ mirror_create_filelist() {
     SRC_LIST_FILE=${MIRROR_PREFIX}.source
     TGT_LIST_FILE=${MIRROR_PREFIX}.target
 
+    FSETDIR="${FSETDIR%/}/"
+
     # Listing creation command
-    FIND_SUBCMD="find $FSETDIR ! -path $PID_FULL ! -path $FSETDIR/$TGT_LIST_FILE ! -path $FSETDIR/$SRC_LIST_FILE -exec ls -dn --quoting-style=escape --full-time {} \;"
+    FIND_SUBCMD="find $FSETDIR ! -path $PID_FULL ! -path ${FSETDIR}${TGT_LIST_FILE} ! -path ${FSETDIR}/${SRC_LIST_FILE} -exec ls -dn --quoting-style=escape --full-time {} \;"
     AWK_SUBCMD="awk '/^total/ {next}; { gsub(\"$FSETDIR\",\"./\",\$9); printf(\"%s%s %s\",\$6,\$7,\$5); for (i=9;i<=NF;i++) printf(\" %s\",\$i); printf(\"\\n\"); }'"
     FILELIST_CMD="$FILELIST_CMD $FIND_SUBCMD | $AWK_SUBCMD"
 
@@ -927,9 +929,9 @@ command_status() {
     if status_is_running; then
         CONFIG_STAT="running"
     elif status_is_failed; then
-        CONFIG_FILE="failed - see log"
+        CONFIG_STAT="failed - see log"
     elif status_is_dead; then
-        CONFIG_FILE="process died uncleanly"
+        CONFIG_STAT="process died uncleanly"
     fi
 
     JOB_STARTED="-"
@@ -1095,6 +1097,11 @@ runjob_sync() {
         command_runscript SUCCESS_SCRIPT
     fi
 
+    # If ALLOW_DELETIONS or ALLOW_OVERWRITES is 0, check for skipped files
+    if [[ ${CONFIG[ALLOW_DELETIONS]} == "0" || ${CONFIG[ALLOW_OVERWRITES]} == "0" ]]; then
+        runjob_skipped_files
+    fi
+
     # Update timestamp of target dir to indicate backup time
     touch $RUN_DIR
 }
@@ -1252,7 +1259,7 @@ runjob_mirror() {
     MIRROR_FAILURE=1
 
     # Record start time (to identify new files/modifications made since we started)
-    MIRROR_STARTTIME=$( date --utc '+%Y-%m-%d %T.%N' )
+    NEW_STARTTIME=$( date --utc '+%Y-%m-%d %T.%N' )
 
     # Load old file lists
     SRC_LIST_OLD=$( cat $SRC_LIST_FULL 2> /dev/null )
@@ -1265,8 +1272,26 @@ runjob_mirror() {
     TGT_LIST_NEW=$( mirror_create_filelist $RUN_DIR )
 
     # If list file(s) was missing, then skip all changes
-    if [[ $SRC_LIST_EXISTS -eq 0 || $TGT_LIST_EXISTS -eq 0 ]]; then
+    if [[ $SRC_LIST_EXISTS -eq 0 && $TGT_LIST_EXISTS -eq 0 ]]; then
+        OLD_STARTTIME=$( date --utc '+%Y-%m-%d %T.%N' -r $SRC_LIST_FULL )
+
+        # POSSIBILITIES
+        # - Files equal to or older than NEW_STARTTIME
+        #   - File missing from side A, unmodified on B [DELETE]
+        #   - File missing from side A, modified on B [MIRROR_CONFLICT_ACTION]
+        #   - File modified on both A and B [rsync updates to most recent edit]
+        #   - New file on A, B, or both A and B [rsync updates to most recent edit]
+        # - Files newer than NEW_STARTTIME
+        #   - File missing from side A, exists on B [Update A from B]
+        #   - File exists on A and B [rsync updates to most recent edit]
+
+        SRC_PATHS_OLD=$( echo $SRC_LIST_OLD | cut -d ' ' -f 3- | sort )
+        SRC_PATHS_NEW=$( echo $SRC_LIST_NEW | cut -d ' ' -f 3- | sort )
+        TGT_PATHS_OLD=$( echo $TGT_LIST_OLD | cut -d ' ' -f 3- | sort )
+        TGT_PATHS_NEW=$( echo $TGT_LIST_NEW | cut -d ' ' -f 3- | sort )
+
         # Identify files removed from source
+        #comm -3 A B | sed 's/\t//'
         #TODO
 
         # Identify files removed from target
@@ -1283,9 +1308,9 @@ runjob_mirror() {
     fi
     # Save mirror file state listings
     echo "$SRC_LIST_NEW" > $SRC_LIST_FULL
-    touch --date=${MIRROR_STARTTIME} $SRC_LIST_FULL
+    touch --date=${NEW_STARTTIME} $SRC_LIST_FULL
     echo "$TGT_LIST_NEW" > $TGT_LIST_FULL
-    touch --date=${MIRROR_STARTTIME} $TGT_LIST_FULL
+    touch --date=${NEW_STARTTIME} $TGT_LIST_FULL
 
     # Run post-rsync scripts
     if [[ $MIRROR_FAILURE -eq 0 ]]; then
@@ -1294,6 +1319,8 @@ runjob_mirror() {
     else
         command_runscript SUCCESS_SCRIPT
     fi
+
+    #TODO skipped files notification
 }
 
 #######################################
