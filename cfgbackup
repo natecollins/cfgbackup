@@ -1180,7 +1180,7 @@ $SKIP_RESULTS
     fi
 
     # If any files were skipped, send an email report
-    if [[ ${CONFIG[NOTIFY_EMAIL]} != "" ]]; then
+    if [[ -n $SKIP_RESULTS && ${CONFIG[NOTIFY_EMAIL]} != "" ]]; then
         mailer "${CONFIG[NOTIFY_EMAIL]}" "cfgbackup job '${CONF_NAME}' skipped some files" "$SKIP_RESULTS"
     fi
 }
