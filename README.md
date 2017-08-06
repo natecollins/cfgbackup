@@ -320,7 +320,6 @@ then differ in the source directory. If set to `0`, then no file modifications w
 additionally, the list of files that are different in the source directory will be logged and emailed to
 the value of `NOTIFY_EMAIL`.  
 With a value of `0`, this adds the `--ignore-existing` flag to the rsync command.  
-With a value of `2`, changed files from the source directory will not be skipped or reported as such, and no flags are added to the rsync command
 ```
 ALLOW_OVERWRITES=0
 ```
