@@ -1193,7 +1193,7 @@ runjob_skipped_files() {
     if [[ ${CONFIG[ALLOW_DELETIONS]} == "0" ]]; then
         RSYNC_FLAGS="$RSYNC_FLAGS --del"
     fi
-    if [[ ${CONFIG[ALLOW_OVERWRITES]} == "1" ]]; then
+    if [[ ${CONFIG[ALLOW_OVERWRITES]} != "0" ]]; then
         RSYNC_FLAGS="$RSYNC_FLAGS --ignore-existing"
     fi
     # Exclude PID_FILE from being synced

@@ -308,14 +308,15 @@ are missing from the source directory. If set to `0`, then no file deletions wil
 additionally, the list of files that do not exist in the source directory will be logged and emailed to
 the value of `NOTIFY_EMAIL`.  
 With a value of `1`, this adds the `--del` flag to the rsync command.  
-With a value of `2`, missing files from the source directory will not be skipped or reported as such, and no flags are added to the rsync command
+With a value of empty string (no value), missing files from the source directory will not be skipped or reported as
+such, and no flags are added to the rsync command
 ```
 ALLOW_DELETIONS=0
 ```
 
 <a name="allow-overwrites"></a>
 `ALLOW_OVERWRITES` [Default value: `1`]   
-With this option set to `1`, files may be updated/overwritten in the target backup directory if
+With this option set to `1` (or empty string), files may be updated/overwritten in the target backup directory if
 then differ in the source directory. If set to `0`, then no file modifications will happen in the target directory;
 additionally, the list of files that are different in the source directory will be logged and emailed to
 the value of `NOTIFY_EMAIL`.  
