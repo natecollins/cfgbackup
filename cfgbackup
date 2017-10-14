@@ -850,7 +850,7 @@ command_check() {
     fi
 
     # Check if hardlink is available if IDENTICALS_HARD_LINK is set
-    if [[ ${CONFIG[IDENTICALS_HARD_LINK]} == "1" ]]; then
+    if [[ ${CONFIG[IDENTICALS_HARD_LINK]} == "1" || ${CONFIG[IDENTICALS_HARD_LINK]} == "2" ]]; then
         if ! hardlink_exists; then
             echo "ERROR: Option IDENTICALS_HARD_LINK is set, but hardlink binary could not be found."
             exit 1
@@ -1039,9 +1039,13 @@ command_runscript() {
 ## running directory.
 ## Does nothing if IDENTICAL_HARD_LINKS is not set.
 hardlink_identicals() {
-    if [[ ${CONFIG[IDENTICALS_HARD_LINK]} == "1" ]]; then
+    if [[ ${CONFIG[IDENTICALS_HARD_LINK]} == "1" || ${CONFIG[IDENTICALS_HARD_LINK]} == "2" ]]; then
         log_entry "| Attempting to hardlink identical files..."
-        HARDLINK_COMMAND="${CONFIG[HARDLINK_PATH]} -c ${RUN_DIR}"
+        HARDLINK_CONTENT_FLAG=''
+        if [[ ${CONFIG[IDENTICALS_HARD_LINK]} == "2" ]]; then
+            HARDLINK_CONTENT_FLAG=' -c'
+        fi
+        HARDLINK_COMMAND="${CONFIG[HARDLINK_PATH]}${HARDLINK_CONTENT_FLAG} ${RUN_DIR}"
         log_entry "| Running command: $HARDLINK_COMMAND"
         HARDLINK_COMMAND="$HARDLINK_COMMAND >> ${LOG_FILE} 2>&1"
         HARDLINK_RET=$?
@@ -1285,26 +1289,40 @@ runjob_mirror() {
         #   - File missing from side A, exists on B [Update A from B]
         #   - File exists on A and B [rsync updates to most recent edit]
 
-        SRC_PATHS_OLD=$( echo $SRC_LIST_OLD | cut -d ' ' -f 3- | sort )
-        SRC_PATHS_NEW=$( echo $SRC_LIST_NEW | cut -d ' ' -f 3- | sort )
-        TGT_PATHS_OLD=$( echo $TGT_LIST_OLD | cut -d ' ' -f 3- | sort )
-        TGT_PATHS_NEW=$( echo $TGT_LIST_NEW | cut -d ' ' -f 3- | sort )
+        SRC_PATHS_OLD=$( echo "$SRC_LIST_OLD" | cut -d ' ' -f 3- | sort )
+        SRC_PATHS_NEW=$( echo "$SRC_LIST_NEW" | cut -d ' ' -f 3- | sort )
+        TGT_PATHS_OLD=$( echo "$TGT_LIST_OLD" | cut -d ' ' -f 3- | sort )
+        TGT_PATHS_NEW=$( echo "$TGT_LIST_NEW" | cut -d ' ' -f 3- | sort )
 
         # Identify files removed from source
-        #comm -3 A B | sed 's/\t//'
-        #TODO
+        SRC_FILES_REMOVED=$( comm -2 -3 $SRC_PATHS_OLD $SRC_PATHS_NEW )
 
         # Identify files removed from target
+        TGT_FILES_REMOVED=$( comm -2 -3 $TGT_PATHS_OLD $TGT_PATHS_NEW )
 
-        # Remove missing source files from target, and new target file list
+        # Reorder file lists for modification comparision
+        AWK_REORDER="awk '{ for (i=3;i<=NF;i++) printf(\"%s \",\$i); printf(\"%s %s\",\$1,\$2); printf(\"\\n\"); }'"
+        SRC_REORDER_OLD=$( echo "$SRC_LIST_OLD" | eval "$AWK_REORDER" | sort )
+        SRC_REORDER_NEW=$( echo "$SRC_LIST_NEW" | eval "$AWK_REORDER" | sort )
+        TGT_REORDER_OLD=$( echo "$TGT_LIST_OLD" | eval "$AWK_REORDER" | sort )
+        TGT_REORDER_NEW=$( echo "$TGT_LIST_NEW" | eval "$AWK_REORDER" | sort )
 
-        # Remove missing target files from source, and new source file list
+        # Identify modified files on source (excluding removed files)
+        SRC_FILES_MODIFIED=$( comm -2 -3 $SRC_REORDER_OLD $SRC_REORDER_NEW )
+        #TODO remove last two columns (timestamp & size)
+        #TODO remove lines matching from SRC_FILES_REMOVED
 
-        # On conflict (both updated and deleted), resolve by MIRROR_CONFLICT_ACTION setting
+        # Identify modified files on target (excluding removed files)
 
-        # Update target from source
+        # On conflict (one side updated, one side deleted), resolve by MIRROR_CONFLICT_ACTION setting
 
-        # Update source from target
+        # Remove missing source files from target and new target files list
+
+        # Remove missing target files from source and new source files list
+
+        # Update target from source (no delete, already handled)
+
+        # Update source from target (no delete, already handled)
     fi
     # Save mirror file state listings
     echo "$SRC_LIST_NEW" > $SRC_LIST_FULL

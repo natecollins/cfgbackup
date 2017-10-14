@@ -31,7 +31,7 @@ Dependencies
 - sed
 - coreutils
 - findutils
-- hardlink (recommended)
+- hardlink (optional)
 
 
 Installation
@@ -282,7 +282,8 @@ location on disk, so they don't take up extra space. This particular option requ
 program is available; if `hardlink` is not found, setting this option will prevent the job from running.
 Note that running `hardlink` runs as a separate process after the rsync process has completed, thus
 adding extra time to how long a job takes to run. With large backups, this can potentially take a very
-long time. Enabled if set to `1`, disabled otherwise.  
+long time. Enabled if set to `1`, but only links files that match file content, owner, permissions, and
+timestamp. If set to `2, will link files when only the file content matches. Disable on all other values.  
 ```
 IDENTICALS_HARD_LINK=1
 ```

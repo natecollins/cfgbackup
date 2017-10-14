@@ -95,7 +95,8 @@ Default: 0
 .TP
 .B IDENTICALS_HARD_LINK
 Any files with identical content within a single backup will will be hard linked together. For
-large backups, this may take considerable time.
+large backups, this may take considerable time. Set to `1` to hard link files with identical
+content and metadata. Set to '2' to hard link files based on content only, discarding metadata.
 .IP
 Default: 0
 
