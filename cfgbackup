@@ -752,6 +752,16 @@ rotate_complete_num() {
 #######################################
 
 ###############################
+## Create a file and save the contents of the variable to the file
+##  $1 -> The variable with the contents to put int the file
+## Outputs name of file containing contents of the variable
+file_from_var() {
+    local TMPVARFILE=$( mktemp )
+    echo "$1" > $TMPVARFILE
+    return $TMPVARFILE
+}
+
+###############################
 ## Create a listing of all files in a directory
 ##  $1 -> Either a local directory path or an remote SSH directory location
 ## Outputs list of files
@@ -1260,7 +1270,7 @@ runjob_mirror() {
     # Exclude PID_FILE and mirror files from being synced
     RSYNC_FLAGS="${RSYNC_FLAGS} --exclude=/${PID_FILE} --exclude=/${SRC_LIST_FILE} --exclude=/${TGT_LIST_FILE}"
 
-    MIRROR_FAILURE=1
+    MIRROR_FAILURE=0
 
     # Record start time (to identify new files/modifications made since we started)
     NEW_STARTTIME=$( date --utc '+%Y-%m-%d %T.%N' )
@@ -1295,10 +1305,18 @@ runjob_mirror() {
         TGT_PATHS_NEW=$( echo "$TGT_LIST_NEW" | cut -d ' ' -f 3- | sort )
 
         # Identify files removed from source
-        SRC_FILES_REMOVED=$( comm -2 -3 $SRC_PATHS_OLD $SRC_PATHS_NEW )
+        SRC_PATHS_OLD_FILE=file_from_var "$SRC_PATHS_OLD"
+        SRC_PATHS_NEW_FILE=file_from_var "$SRC_PATHS_NEW"
+        SRC_FILES_REMOVED=$( comm -2 -3 $SRC_PATHS_OLD_FILE $SRC_PATHS_NEW_FILE )
+        rm $SRC_PATHS_OLD_FILE
+        rm $SRC_PATHS_NEW_FILE
 
         # Identify files removed from target
-        TGT_FILES_REMOVED=$( comm -2 -3 $TGT_PATHS_OLD $TGT_PATHS_NEW )
+        TGT_PATHS_OLD_FILE=file_from_var "$TGT_PATHS_OLD"
+        TGT_PATHS_NEW_FILE=file_from_var "$TGT_PATHS_NEW"
+        TGT_FILES_REMOVED=$( comm -2 -3 $TGT_PATHS_OLD_FILE $TGT_PATHS_NEW_FILE )
+        rm $TGT_PATHS_OLD_FILE
+        rm $TGT_PATHS_NEW_FILE
 
         # Reorder file lists for modification comparision
         AWK_REORDER="awk '{ for (i=3;i<=NF;i++) printf(\"%s \",\$i); printf(\"%s %s\",\$1,\$2); printf(\"\\n\"); }'"
@@ -1307,38 +1325,109 @@ runjob_mirror() {
         TGT_REORDER_OLD=$( echo "$TGT_LIST_OLD" | eval "$AWK_REORDER" | sort )
         TGT_REORDER_NEW=$( echo "$TGT_LIST_NEW" | eval "$AWK_REORDER" | sort )
 
-        # Identify modified files on source (excluding removed files)
-        SRC_FILES_MODIFIED=$( comm -2 -3 $SRC_REORDER_OLD $SRC_REORDER_NEW )
-        #TODO remove last two columns (timestamp & size)
-        #TODO remove lines matching from SRC_FILES_REMOVED
+        # Identify modified files on source (find changes | trim size/timestamp | exclude removed files)
+        SRC_REORDER_OLD_FILE=file_from_var "$SRC_REORDER_OLD"
+        SRC_REORDER_NEW_FILE=file_from_var "$SRC_REORDER_NEW"
+        SRC_FILES_REMOVED_FILE=file_from_var "$SRC_FILES_REMOVED"
+        SRC_FILES_MODIFIED=$( comm -2 -3 $SRC_REORDER_OLD_FILE $SRC_REORDER_NEW_FILE | awk '{NF-=2; print $0}' | comm -2 -3 - $SRC_FILES_REMOVED_FILE )
+        rm $SRC_REORDER_OLD_FILE
+        rm $SRC_REORDER_NEW_FILE
 
         # Identify modified files on target (excluding removed files)
+        TGT_REORDER_OLD_FILE=file_from_var "$TGT_REORDER_OLD"
+        TGT_REORDER_NEW_FILE=file_from_var "$TGT_REORDER_NEW"
+        TGT_FILES_REMOVED_FILE=file_from_var "$TGT_FILES_REMOVED"
+        TGT_FILES_MODIFIED=$( comm -2 -3 $TGT_REORDER_OLD_FILE $TGT_REORDER_NEW_FILE | awk '{NF-=2; print $0}' | comm -2 -3 - $TGT_FILES_REMOVED_FILE )
+        rm $TGT_REORDER_OLD_FILE
+        rm $TGT_REORDER_NEW_FILE
 
         # On conflict (one side updated, one side deleted), resolve by MIRROR_CONFLICT_ACTION setting
+        SRC_FILES_MODIFIED_FILE=file_from_var "$SRC_FILES_MODIFIED_FILE"
+        TGT_FILES_MODIFIED_FILE=file_from_var "$TGT_FILES_MODIFIED_FILE"
+        CONFLICT_TGT_REMOVED=$( comm -1 -2 $SRC_FILES_MODIFIED_FILE $TGT_FILES_REMOVED_FILE )
+        CONFLICT_SRC_REMOVED=$( comm -1 -2 $TGT_FILES_MODIFIED_FILE $SRC_FILES_REMOVED_FILE )
+        rm $SRC_FILES_MODIFIED_FILE
+        rm $TGT_FILES_MODIFIED_FILE
+        rm $SRC_FILES_REMOVED_FILE
+        rm $TGT_FILES_REMOVED_FILE
+        CONFLICT_TGT_REMOVED_FILE=file_from_var "$CONFLICT_TGT_REMOVED"
+        CONFLICT_SRC_REMOVED_FILE=file_from_var "$CONFLICT_SRC_REMOVED"
+
+        SYNC_FROM=$( escaped_rsync_source )
+        RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS}"
+        CONFLICT_LOC1="${RUN_DIR}"
+        CONFLICT_LOC2="${SYNC_FROM}"
+        if [[ $MIRROR_CONFLICT_ACTION == "delete" ]]; then
+            CONFLICT_LOC1="${SYNC_FROM}"
+            CONFLICT_LOC2="${RUN_DIR}"
+            RSYNC_COMMAND="${RSYNC_COMMAND} --del"
+        fi
+        if [[ -s $CONFLICT_SRC_REMOVED_FILE || -s $CONFLICT_TGT_REMOVED_FILE ]]; then
+            log_entry "| Conflict files found - resolving per config setting: ${MIRROR_CONFLICT_ACTION}"
+            if [[ $MIRROR_FAILURE -eq 0 && -s $CONFLICT_SRC_REMOVED_FILE ]]; then
+                RSYNC_COMMAND="${RSYNC_COMMAND} --files-from=${CONFLICT_SRC_REMOVED_FILE} ${CONFLICT_LOC1}/ ${CONFLICT_LOC2}/"
+                log_entry "| Running rsync: $RSYNC_COMMAND"
+                RSYNC_COMMAND="$RSYNC_COMMAND >> ${LOG_FILE} 2>&1"
+                eval $RSYNC_COMMAND
+                RSYNC_EXIT=$?
+                if [[ $RSYNC_EXIT -ne 0 ]]; then
+                    log_entry "| Rsync command exited with code: $RSYNC_EXIT"
+                    MIRROR_FAILURE=1
+                fi
+
+                # Update timestamp of target dir to indicate backup time
+                touch $RUN_DIR
+            fi
+            if [[ $MIRROR_FAILURE -eq 0 && -s $CONFLICT_TGT_REMOVED_FILE ]]; then
+                RSYNC_COMMAND="${RSYNC_COMMAND} --files-from=${CONFLICT_TGT_REMOVED_FILE} ${CONFLICT_LOC2}/ ${CONFLICT_LOC1}/"
+                log_entry "| Running rsync: $RSYNC_COMMAND"
+                RSYNC_COMMAND="$RSYNC_COMMAND >> ${LOG_FILE} 2>&1"
+                eval $RSYNC_COMMAND
+                RSYNC_EXIT=$?
+                if [[ $RSYNC_EXIT -ne 0 ]]; then
+                    log_entry "| Rsync command exited with code: $RSYNC_EXIT"
+                    MIRROR_FAILURE=1
+                fi
+
+            fi
+        fi
+        rm $CONFLICT_TGT_REMOVED_FILE
+        rm $CONFLICT_SRC_REMOVED_FILE
 
         # Remove missing source files from target and new target files list
+        #TODO
 
         # Remove missing target files from source and new source files list
+        #TODO
 
         # Update target from source (no delete, already handled)
+        if [[ $MIRROR_FAILURE -eq 0 ]]; then
+            #TODO
+        fi
 
         # Update source from target (no delete, already handled)
+        if [[ $MIRROR_FAILURE -eq 0 ]]; then
+            #TODO
+        fi
     fi
-    # Save mirror file state listings
-    echo "$SRC_LIST_NEW" > $SRC_LIST_FULL
-    touch --date=${NEW_STARTTIME} $SRC_LIST_FULL
-    echo "$TGT_LIST_NEW" > $TGT_LIST_FULL
-    touch --date=${NEW_STARTTIME} $TGT_LIST_FULL
 
     # Run post-rsync scripts
-    if [[ $MIRROR_FAILURE -eq 0 ]]; then
+    if [[ $MIRROR_FAILURE -ne 0 ]]; then
         log_entry "| Mirror job failed due to previous errors"
         command_runscript FAILED_SCRIPT
+        mailer_rsync_exit $RSYNC_EXIT
     else
+        # Save mirror file state listings
+        echo "$SRC_LIST_NEW" > $SRC_LIST_FULL
+        touch --date=${NEW_STARTTIME} $SRC_LIST_FULL
+        echo "$TGT_LIST_NEW" > $TGT_LIST_FULL
+        touch --date=${NEW_STARTTIME} $TGT_LIST_FULL
+
         command_runscript SUCCESS_SCRIPT
     fi
 
-    #TODO skipped files notification
+    # Update timestamp of target dir to indicate backup time
+    touch $RUN_DIR
 }
 
 #######################################

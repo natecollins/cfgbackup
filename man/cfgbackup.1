@@ -96,7 +96,8 @@ Default: 0
 .B IDENTICALS_HARD_LINK
 Any files with identical content within a single backup will will be hard linked together. For
 large backups, this may take considerable time. Set to `1` to hard link files with identical
-content and metadata. Set to '2' to hard link files based on content only, discarding metadata.
+content and metadata. Set to '2' to hard link files based on content only, discarding metadata
+differences.
 .IP
 Default: 0
 
@@ -118,6 +119,7 @@ Files may be deleted from the target directory if they are missing
 from the source directory. If disabled (value of 0), will send notification on what files
 are missing from source directory. If set to empty string (no value), then no notification
 will be sent and the rsync flag to allow deletions will not set.
+Ignored if JOB_TYPE is mirror.
 .IP
 Default: 1
 
@@ -126,6 +128,7 @@ Default: 1
 Files may be updated/overwritten in the target directory if they differ
 from the source directory. If disabled (value of 0), will send notification on what
 files are different in the source directory.
+Ignored if JOB_TYPE is mirror.
 .IP
 Default: 1
 

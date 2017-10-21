@@ -1,4 +1,4 @@
-cfgbackup - Simple File Backups
+cfgbackup - "cfgbackup's a fairly good backup"
 ========================================
 An easy to use file backup script where each job is based around a simple config file.  
 - Does rotational backups or simple syncing
@@ -310,7 +310,8 @@ additionally, the list of files that do not exist in the source directory will b
 the value of `NOTIFY_EMAIL`.  
 With a value of `1`, this adds the `--del` flag to the rsync command.  
 With a value of empty string (no value), missing files from the source directory will not be skipped or reported as
-such, and no flags are added to the rsync command
+such, and no flags are added to the rsync command.  
+Has no effect if the JOB_TYPE is set to `mirror`.  
 ```
 ALLOW_DELETIONS=0
 ```
@@ -322,6 +323,7 @@ then differ in the source directory. If set to `0`, then no file modifications w
 additionally, the list of files that are different in the source directory will be logged and emailed to
 the value of `NOTIFY_EMAIL`.  
 With a value of `0`, this adds the `--ignore-existing` flag to the rsync command.  
+Has no effect if the JOB_TYPE is set to `mirror`.  
 ```
 ALLOW_OVERWRITES=0
 ```
