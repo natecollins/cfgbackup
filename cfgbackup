@@ -759,16 +759,6 @@ rotate_complete_num() {
 #######################################
 
 ###############################
-## Create a file and save the contents of the variable to the file
-##  $1 -> The variable with the contents to put int the file
-## Outputs name of file containing contents of the variable
-file_from_var() {
-    local TMPVARFILE=$( mktemp )
-    echo "$1" > $TMPVARFILE
-    echo $TMPVARFILE
-}
-
-###############################
 ## Create a listing of all files in a directory
 ##  $1 -> Either a local directory path or an remote SSH directory location
 ## Outputs list of files
@@ -806,13 +796,23 @@ mirror_create_filelist() {
 }
 
 ###############################
+## Create a file and save the contents of the variable to the file
+##  $1 -> The variable name with the contents to put int the file
+## Outputs name of file containing contents of the variable
+file_from_var() {
+    local TMPVARFILE=$( mktemp )
+    echo "${!1}" > $TMPVARFILE
+    echo $TMPVARFILE
+}
+
+###############################
 ## Compare contents of two variables pre-sorted line by line, outputing lines unique to the first variable
 ##  $1 -> Name of first variable
 ##  $2 -> Name of second variable
 ## Outputs lines unique to the first variable
 linecomp_unique_first() {
-    local FIRST_FILE=file_from_var "${!1}"
-    local SECOND_FILE=file_from_var "${!2}"
+    local FIRST_FILE=$( file_from_var "$1" )
+    local SECOND_FILE=$( file_from_var "$2" )
     local COMM_RESULT=$( comm -2 -3 $FIRST_FILE $SECOND_FILE )
     rm $FIRST_FILE
     rm $SECOND_FILE
@@ -825,8 +825,8 @@ linecomp_unique_first() {
 ##  $2 -> Name of second variable
 ## Outputs lines identical to both variables
 linecomp_identical() {
-    local FIRST_FILE=file_from_var "${!1}"
-    local SECOND_FILE=file_from_var "${!2}"
+    local FIRST_FILE=$( file_from_var "$1" )
+    local SECOND_FILE=$( file_from_var "$2" )
     local COMM_RESULT=$( comm -1 -2 $FIRST_FILE $SECOND_FILE )
     rm $FIRST_FILE
     rm $SECOND_FILE
@@ -1315,7 +1315,6 @@ runjob_mirror() {
     # Build new file lists
     SRC_LIST_NEW=$( mirror_create_filelist $MIRROR_SRC )
     TGT_LIST_NEW=$( mirror_create_filelist $RUN_DIR )
-
     # If list file(s) was missing, then skip all changes
     if [[ $SRC_LIST_EXISTS -eq 0 && $TGT_LIST_EXISTS -eq 0 ]]; then
         OLD_STARTTIME=$( date --utc '+%Y-%m-%d %T.%N' -r $SRC_LIST_FULL )
@@ -1352,8 +1351,8 @@ runjob_mirror() {
         CONFLICT_TGT_REMOVED=$( linecomp_identical SRC_FILES_MODIFIED TGT_FILES_REMOVED )
         CONFLICT_SRC_REMOVED=$( linecomp_identical TGT_FILES_MODIFIED SRC_FILES_REMOVED )
 
-        CONFLICT_TGT_REMOVED_FILE=file_from_var "$CONFLICT_TGT_REMOVED"
-        CONFLICT_SRC_REMOVED_FILE=file_from_var "$CONFLICT_SRC_REMOVED"
+        CONFLICT_TGT_REMOVED_FILE=$( file_from_var "CONFLICT_TGT_REMOVED" )
+        CONFLICT_SRC_REMOVED_FILE=$( file_from_var "CONFLICT_SRC_REMOVED" )
 
         SYNC_FROM=$( escaped_rsync_source )
         RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS}"
@@ -1391,10 +1390,9 @@ runjob_mirror() {
         fi
         rm $CONFLICT_TGT_REMOVED_FILE
         rm $CONFLICT_SRC_REMOVED_FILE
-
         # Remove missing source files from target and new target files list
         if [[ $MIRROR_FAILURE -eq 0 && ! -z $SRC_FILES_REMOVED ]]; then
-            SRC_FILES_REMOVED_FILE=file_from_var "$SRC_FILES_REMOVED"
+            SRC_FILES_REMOVED_FILE=$( file_from_var "SRC_FILES_REMOVED" )
             log_entry "| Removing files from target dir"
             RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} --del --files-from=${SRC_FILES_REMOVED_FILE} ${SYNC_FROM}/ ${RUN_DIR}/"
             log_entry "| Running rsync: $RSYNC_COMMAND"
@@ -1406,14 +1404,15 @@ runjob_mirror() {
                 MIRROR_FAILURE=1
             fi
 
-            #TODO remove from TGT_LIST_NEW
+            # Strip removed files from TGT_LIST_NEW
+            TGT_LIST_NEW=$( linecomp_unique_first TGT_LIST_NEW SRC_FILES_REMOVED )
 
             rm $SRC_FILES_REMOVED_FILE
         fi
 
         # Remove missing target files from source and new source files list
         if [[ $MIRROR_FAILURE -eq 0 && -z $TGT_FILES_REMOVED ]]; then
-            SRC_FILES_REMOVED_FILE=file_from_var "$TGT_FILES_REMOVED"
+            SRC_FILES_REMOVED_FILE=$( file_from_var "TGT_FILES_REMOVED" )
             log_entry "| Removing files from source dir"
             RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} --del --files-from=${TGT_FILES_REMOVED_FILE} ${RUN_DIR}/ ${SYNC_FROM}/"
             log_entry "| Running rsync: $RSYNC_COMMAND"
@@ -1425,16 +1424,16 @@ runjob_mirror() {
                 MIRROR_FAILURE=1
             fi
 
-            #TODO remove from new SRC_LIST_NEW
+            # Strip removed files from SRC_LIST_NEW
+            SRC_LIST_NEW=$( linecomp_unique_first SRC_LIST_NEW TGT_FILES_REMOVED )
 
             rm $TGT_FILES_REMOVED_FILE
         fi
 
         # Update target from source (no delete, already handled)
         if [[ $MIRROR_FAILURE -eq 0 ]]; then
-            #TODO limit allowed files to those from SRC_LIST_NEW
             log_entry "| Updating target from files newer on source"
-            RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM}/ ${RUN_DIR}/"
+            RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} --files-from=${SRC_LIST_NEW} ${SYNC_FROM}/ ${RUN_DIR}/"
             log_entry "| Running rsync: $RSYNC_COMMAND"
             RSYNC_COMMAND="$RSYNC_COMMAND >> ${LOG_FILE} 2>&1"
             eval $RSYNC_COMMAND
@@ -1447,9 +1446,8 @@ runjob_mirror() {
 
         # Update source from target (no delete, already handled)
         if [[ $MIRROR_FAILURE -eq 0 ]]; then
-            #TODO limit allowed files to those from TGT_LIST_NEW
             log_entry "| Updating source from files newer on target"
-            RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${RUN_DIR}/ ${SYNC_FROM}/"
+            RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} --files-from=${TGT_LIST_NEW} ${RUN_DIR}/ ${SYNC_FROM}/"
             log_entry "| Running rsync: $RSYNC_COMMAND"
             RSYNC_COMMAND="$RSYNC_COMMAND >> ${LOG_FILE} 2>&1"
             eval $RSYNC_COMMAND
