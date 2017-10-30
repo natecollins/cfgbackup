@@ -1339,12 +1339,12 @@ runjob_mirror() {
 
         # Identify modified files on source (find changes | trim size/timestamp | exclude removed files)
         SRC_REORDERED=$( linecomp_unique_first SRC_REORDER_OLD SRC_REORDER_NEW )
-        SRC_REORDERED=$( echo "$SRC_REORDERED" | awk '{NF-=2; print $0}' )
+        SRC_REORDERED=$( echo "$SRC_REORDERED" | awk '{NF-=2; print $0}' | sort )
         SRC_FILES_MODIFIED=$( linecomp_unique_first SRC_REORDERED SRC_FILES_REMOVED )
 
         # Identify modified files on target (excluding removed files)
         TGT_REORDERED=$( linecomp_unique_first TGT_REORDER_OLD TGT_REORDER_NEW )
-        TGT_REORDERED=$( echo "$TGT_REORDERED" | awk '{NF-=2; print $0}' )
+        TGT_REORDERED=$( echo "$TGT_REORDERED" | awk '{NF-=2; print $0}' | sort )
         TGT_FILES_MODIFIED=$( linecomp_unique_first TGT_REORDERED TGT_FILES_REMOVED )
 
         # On conflict (one side updated, one side deleted), resolve by MIRROR_CONFLICT_ACTION setting
@@ -1355,18 +1355,18 @@ runjob_mirror() {
         CONFLICT_SRC_REMOVED_FILE=$( file_from_var "CONFLICT_SRC_REMOVED" )
 
         SYNC_FROM=$( escaped_rsync_source )
-        RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS}"
         CONFLICT_LOC1="${RUN_DIR}"
         CONFLICT_LOC2="${SYNC_FROM}"
+        RSYNC_CONFLICT_FLAG=
         if [[ $MIRROR_CONFLICT_ACTION == "delete" ]]; then
             CONFLICT_LOC1="${SYNC_FROM}"
             CONFLICT_LOC2="${RUN_DIR}"
-            RSYNC_COMMAND="${RSYNC_COMMAND} --del"
+            RSYNC_CONFLICT_FLAG="--del"
         fi
         if [[ -s $CONFLICT_SRC_REMOVED_FILE || -s $CONFLICT_TGT_REMOVED_FILE ]]; then
             log_entry "| Conflict files found - resolving per config setting: ${MIRROR_CONFLICT_ACTION}"
             if [[ $MIRROR_FAILURE -eq 0 && -s $CONFLICT_SRC_REMOVED_FILE ]]; then
-                RSYNC_COMMAND="${RSYNC_COMMAND} --files-from=${CONFLICT_SRC_REMOVED_FILE} ${CONFLICT_LOC1}/ ${CONFLICT_LOC2}/"
+                RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${RSYNC_CONFLICT_FLAG} --files-from=${CONFLICT_SRC_REMOVED_FILE} ${CONFLICT_LOC1}/ ${CONFLICT_LOC2}/"
                 log_entry "| Running rsync: $RSYNC_COMMAND"
                 RSYNC_COMMAND="$RSYNC_COMMAND >> ${LOG_FILE} 2>&1"
                 eval $RSYNC_COMMAND
@@ -1377,7 +1377,7 @@ runjob_mirror() {
                 fi
             fi
             if [[ $MIRROR_FAILURE -eq 0 && -s $CONFLICT_TGT_REMOVED_FILE ]]; then
-                RSYNC_COMMAND="${RSYNC_COMMAND} --files-from=${CONFLICT_TGT_REMOVED_FILE} ${CONFLICT_LOC2}/ ${CONFLICT_LOC1}/"
+                RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${RSYNC_CONFLICT_FLAG} --files-from=${CONFLICT_TGT_REMOVED_FILE} ${CONFLICT_LOC2}/ ${CONFLICT_LOC1}/"
                 log_entry "| Running rsync: $RSYNC_COMMAND"
                 RSYNC_COMMAND="$RSYNC_COMMAND >> ${LOG_FILE} 2>&1"
                 eval $RSYNC_COMMAND
@@ -1412,7 +1412,7 @@ runjob_mirror() {
 
         # Remove missing target files from source and new source files list
         if [[ $MIRROR_FAILURE -eq 0 && -z $TGT_FILES_REMOVED ]]; then
-            SRC_FILES_REMOVED_FILE=$( file_from_var "TGT_FILES_REMOVED" )
+            TGT_FILES_REMOVED_FILE=$( file_from_var "TGT_FILES_REMOVED" )
             log_entry "| Removing files from source dir"
             RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} --del --files-from=${TGT_FILES_REMOVED_FILE} ${RUN_DIR}/ ${SYNC_FROM}/"
             log_entry "| Running rsync: $RSYNC_COMMAND"
@@ -1430,10 +1430,16 @@ runjob_mirror() {
             rm $TGT_FILES_REMOVED_FILE
         fi
 
+        # Add flag to only update if file is more recent
+        RSYNC_FLAGS="${RSYNC_FLAGS} -u"
+        AWK_SKIPTWO="awk '{ for (i=3;i<=NF;i++) printf(\"%s \",\$i); }'"
+
         # Update target from source (no delete, already handled)
         if [[ $MIRROR_FAILURE -eq 0 ]]; then
+            SRC_FILES_SYNC=$( echo "$SRC_LIST_NEW" | eval "$AWK_SKIPTWO" )
+            SRC_FILES_SYNC_FILE=$( file_from_var "SRC_FILES_SYNC" )
             log_entry "| Updating target from files newer on source"
-            RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} --files-from=${SRC_LIST_NEW} ${SYNC_FROM}/ ${RUN_DIR}/"
+            RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} --files-from=${SRC_FILES_SYNC_FILE} ${SYNC_FROM}/ ${RUN_DIR}/"
             log_entry "| Running rsync: $RSYNC_COMMAND"
             RSYNC_COMMAND="$RSYNC_COMMAND >> ${LOG_FILE} 2>&1"
             eval $RSYNC_COMMAND
@@ -1446,8 +1452,10 @@ runjob_mirror() {
 
         # Update source from target (no delete, already handled)
         if [[ $MIRROR_FAILURE -eq 0 ]]; then
+            TGT_FILES_SYNC=$( echo "$TGT_LIST_NEW" | eval "$AWK_SKIPTWO" )
+            TGT_FILES_SYNC_FILE=$( file_from_var "TGT_FILES_SYNC" )
             log_entry "| Updating source from files newer on target"
-            RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} --files-from=${TGT_LIST_NEW} ${RUN_DIR}/ ${SYNC_FROM}/"
+            RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} --files-from=${TGT_FILES_SYNC_FILE} ${RUN_DIR}/ ${SYNC_FROM}/"
             log_entry "| Running rsync: $RSYNC_COMMAND"
             RSYNC_COMMAND="$RSYNC_COMMAND >> ${LOG_FILE} 2>&1"
             eval $RSYNC_COMMAND
