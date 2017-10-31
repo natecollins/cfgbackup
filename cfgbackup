@@ -833,6 +833,18 @@ linecomp_identical() {
     echo "$COMM_RESULT"
 }
 
+###############################
+## Remove all lines from the first variable that have a line ending that matches a line from the second variable
+##  $1 -> Name of first variable
+##  $2 -> Name of second variable (contains lines endings to exclude)
+## Outputs lines from the first variable that do not match ending from the second variable
+remove_lines_ending_with() {
+    GREP_EXCLUDE=$( mktemp )
+    echo "${!2}" | sed 's/[^a-zA-Z0-9]/\\&/g' | awk 'NF > 0 { print $0 "$"; }' > $GREP_EXCLUDE
+    echo "${!1}" | grep -v -f $GREP_EXCLUDE
+    rm $GREP_EXCLUDE
+}
+
 #######################################
 # CHECK CONFIG FILE OPTIONS
 #######################################
@@ -1403,11 +1415,10 @@ runjob_mirror() {
                 log_entry "| Rsync command exited with code: $RSYNC_EXIT"
                 MIRROR_FAILURE=1
             fi
+            rm $SRC_FILES_REMOVED_FILE
 
             # Strip removed files from TGT_LIST_NEW
-            TGT_LIST_NEW=$( linecomp_unique_first TGT_LIST_NEW SRC_FILES_REMOVED )
-
-            rm $SRC_FILES_REMOVED_FILE
+            TGT_LIST_NEW=$( remove_lines_ending_with TGT_LIST_NEW SRC_FILES_REMOVED )
         fi
 
         # Remove missing target files from source and new source files list
@@ -1423,20 +1434,18 @@ runjob_mirror() {
                 log_entry "| Rsync command exited with code: $RSYNC_EXIT"
                 MIRROR_FAILURE=1
             fi
+            rm $TGT_FILES_REMOVED_FILE
 
             # Strip removed files from SRC_LIST_NEW
-            SRC_LIST_NEW=$( linecomp_unique_first SRC_LIST_NEW TGT_FILES_REMOVED )
-
-            rm $TGT_FILES_REMOVED_FILE
+            SRC_LIST_NEW=$( remove_lines_ending_with SRC_LIST_NEW TGT_FILES_REMOVED )
         fi
 
         # Add flag to only update if file is more recent
         RSYNC_FLAGS="${RSYNC_FLAGS} -u"
-        AWK_SKIPTWO="awk '{ for (i=3;i<=NF;i++) printf(\"%s \",\$i); }'"
 
         # Update target from source (no delete, already handled)
         if [[ $MIRROR_FAILURE -eq 0 ]]; then
-            SRC_FILES_SYNC=$( echo "$SRC_LIST_NEW" | eval "$AWK_SKIPTWO" )
+            SRC_FILES_SYNC=$( echo "$SRC_LIST_NEW" | cut -d ' ' -f 3- )
             SRC_FILES_SYNC_FILE=$( file_from_var "SRC_FILES_SYNC" )
             log_entry "| Updating target from files newer on source"
             RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} --files-from=${SRC_FILES_SYNC_FILE} ${SYNC_FROM}/ ${RUN_DIR}/"
@@ -1452,7 +1461,7 @@ runjob_mirror() {
 
         # Update source from target (no delete, already handled)
         if [[ $MIRROR_FAILURE -eq 0 ]]; then
-            TGT_FILES_SYNC=$( echo "$TGT_LIST_NEW" | eval "$AWK_SKIPTWO" )
+            TGT_FILES_SYNC=$( echo "$TGT_LIST_NEW" | cut -d ' ' -f 3- )
             TGT_FILES_SYNC_FILE=$( file_from_var "TGT_FILES_SYNC" )
             log_entry "| Updating source from files newer on target"
             RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} --files-from=${TGT_FILES_SYNC_FILE} ${RUN_DIR}/ ${SYNC_FROM}/"
