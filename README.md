@@ -1,10 +1,10 @@
 cfgbackup - "cfgbackup's a fairly good backup"
 ========================================
 An easy to use file backup script where each job is based around a simple config file.  
-- Does rotational backups or simple syncing
+- Does rotational backups, one-directional syncing, or mirroring of directories
 - Detailed logging
 - Email notifications on failure
-- Backups are simply files in directories, no special tools for recovery
+- Resulting backups are simply files in directories, no special tools for recovery or inspection
 - Can hard link unchanged files between rotational backups
 - Can hard link identical files with a single backup
 - Very customizable
@@ -29,6 +29,7 @@ Dependencies
 - rsync (recommended 3.1.0+)
 - awk
 - sed
+- grep
 - coreutils
 - findutils
 - hardlink (optional)
@@ -46,9 +47,12 @@ that with `dpkg` like any other package.
 
 Basic Usage
 ------------------------
-There are two basic types of backup jobs `cfgbackup` can do: `rotation` and `sync`  
+There are three basic types of backup jobs `cfgbackup` can do: `rotation`, `sync`, and `mirror`:  
  - `rotation` jobs create a series of backup rotations in subdirs of the target dir
  - `sync` jobs syncronize a directory from one location to another
+ - `mirror` updates files in both directions, including deletions (EXPERIMENTAL)
+
+For backups in the truest sense of the word, it is highly recommended to use the `rotation` job type.  
 
 Each backup job has it's own config file. Provided is an sample config called `example.conf`;
 recommended is that you copy this file to use as a template, modifying it as you like. The
@@ -56,9 +60,11 @@ file can reside anywhere, but suggested location for your config files in produc
 is `/etc/cfgbackup/`.  
 
 In this file, you will need to specify a few required config options.  
-`BACKUP_TYPE` which can be either `rotation` or `sync`  
+`BACKUP_TYPE` which can be either `rotation`, `sync`, or `mirror`  
 `SOURCE_DIR` which is the directory to be backed up (can be remote over SSH)  
 `TARGET_DIR` is where the backup(s) should go; must be a local directory  
+
+For `rotation` jobs, this must also be set:  
 `MAX_ROTATIONS` how many rotation subdirs to create (`rotation` jobs only)  
 
 An example config file, let's call it `alpha.conf`, might be something like this:  
@@ -172,6 +178,7 @@ Config Options
 - [`ROTATE_SUBDIR`](#rotate_subdir)
 - [`ALLOW_DELETIONS`](#allow-deletions)
 - [`ALLOW_OVERWRITES`](#allow-overwrites)
+- [`MIRROR_CONFLICT_ACTION`](#mirror-conflict-action)
 - [`RSYNC_FLAGS`](#rsync-flags)
 - [`PRE_SCRIPT`,`SUCCESS_SCRIPT`,`FAILED_SCRIPT`,`FINAL_SCRIPT`](#script-options)
 - [`PRE_SCRIPT_ERROR_EXIT`](#pre-script-error-exit)
@@ -317,7 +324,7 @@ ALLOW_DELETIONS=0
 ```
 
 <a name="allow-overwrites"></a>
-`ALLOW_OVERWRITES` [Default value: `1`]   
+`ALLOW_OVERWRITES` [Default value: `1`]  
 With this option set to `1` (or empty string), files may be updated/overwritten in the target backup directory if
 then differ in the source directory. If set to `0`, then no file modifications will happen in the target directory;
 additionally, the list of files that are different in the source directory will be logged and emailed to
@@ -326,6 +333,17 @@ With a value of `0`, this adds the `--ignore-existing` flag to the rsync command
 Has no effect if the JOB_TYPE is set to `mirror`.  
 ```
 ALLOW_OVERWRITES=0
+```
+
+<a name="mirror-conflict-action"></a>
+`MIRROR_CONFLICT_ACTION` [Default value: `update`]  
+With this option set to `update` (or empty string), when a file is updated on one end of a mirror job and 
+deleted on the other end of a mirror job, this is the action to choose when updating that file. If the
+value is `update`, then the deleted file is replaced with the updated file. If the value is `delete`, then
+the updated file is removed, losing any changes it may have had.  
+Only valid if the JOB_TYPE is set to `mirror`.  
+```
+MIRROR_CONFLICT_UPDATE=delete
 ```
 
 <a name="rsync-flags"></a>

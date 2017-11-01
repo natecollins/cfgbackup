@@ -53,7 +53,8 @@ rotations (rotation type). Must be a local directory.
 
 .TP
 .B BACKUP_TYPE
-The type of backup to make. Value must be either `sync` or `rotaion`.
+The type of backup to make. Value must be `rotation`, 'sync', or 'mirror'. Note that
+the 'mirror' job type is currently experimental.
 
 .TP
 .B NOTIFY_EMAIL
@@ -131,6 +132,15 @@ files are different in the source directory.
 Ignored if JOB_TYPE is mirror.
 .IP
 Default: 1
+
+.TP
+.B MIRROR_CONFLICT_ACTION
+Mirror jobs only. If a file was deleted on one end yet updated on the other end
+between job runs, this causes a conflict. This setting indicates the action to take when
+a conflict happens, which can be either to use mirror the updated file or to remove the
+updated file. Valid values are: update, delete
+.IP
+Default: update
 
 .TP
 .B RSYNC_FLAGS
