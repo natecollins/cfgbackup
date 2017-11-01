@@ -220,7 +220,8 @@ BACKUPS_TYPE=rotation
 
 <a name="notify-email"></a>
 `NOTIFY_EMAIL`[Deafult value: ` ` (blank)]  
-The email to send failures and notification to. If left blank,
+The email to send failures and notification to. You must have a Mail Transfer Agent
+installed to handle actual sending of email. If this setting is left blank,
 then no emails will be sent. Setting this is highly recommened!  
 ```
 NOTIFY_EMAIL=admin@example.com
