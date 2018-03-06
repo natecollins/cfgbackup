@@ -180,6 +180,7 @@ Config Options
 - [`ALLOW_OVERWRITES`](#allow-overwrites)
 - [`MIRROR_CONFLICT_ACTION`](#mirror-conflict-action)
 - [`RSYNC_FLAGS`](#rsync-flags)
+- [`NOTIFY_RSYNC_FLAGS`](#notify-rsync-flags)
 - [`PRE_SCRIPT`,`SUCCESS_SCRIPT`,`FAILED_SCRIPT`,`FINAL_SCRIPT`](#script-options)
 - [`PRE_SCRIPT_ERROR_EXIT`](#pre-script-error-exit)
 - [`RUNNING_DIRNAME`](#running-dirname)
@@ -291,7 +292,7 @@ program is available; if `hardlink` is not found, setting this option will preve
 Note that running `hardlink` runs as a separate process after the rsync process has completed, thus
 adding extra time to how long a job takes to run. With large backups, this can potentially take a very
 long time. Enabled if set to `1`, but only links files that match file content, owner, permissions, and
-timestamp. If set to `2, will link files when only the file content matches. Disable on all other values.  
+timestamp. If set to `2`, will link files when only the file content matches. Disable on all other values.  
 ```
 IDENTICALS_HARD_LINK=1
 ```
@@ -355,6 +356,17 @@ flags, however, you can use the `--no-OPTION` flags to negate implied flags. For
 Flags always included, even when none are specified: `-av --stats`  
 ```
 RSYNC_FLAGS=--exclude=.DS_Store --exclude=._*
+```
+
+<a name="notify-rsync-flags"></a>
+`NOTIFY_RSYNC_FLAGS` [Default value: `-O`]  
+If either `ALLOW_DELETIONS` or `ALLOW_OVERWRITES` is set to `0`, a second rsync job is run to find
+file changes that were skipped by these settings, with the results being logged and sent
+to the `NOTIFY_EMAIL` address. You can add additional flags to that second rsync job here.
+The default value is the `-O` flag is recommended, which stops reporting of
+directories with timestamp differences.  
+```
+NOTIFY_RSYNC_FLAGS=-O
 ```
 
 <a name="script-options"></a>

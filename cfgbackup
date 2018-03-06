@@ -21,7 +21,7 @@
 # SOFTWARE.
 ################################################################################
 
-VERSION=0.4.0
+VERSION=0.4.1
 
 #######################################
 # MISC HELPER FUNCTIONS
@@ -333,6 +333,7 @@ default_config() {
     CONFIG[SOURCE_DIR]=
     CONFIG[TARGET_DIR]=
     CONFIG[RSYNC_FLAGS]=
+    CONFIG[NOTIFY_RSYNC_FLAGS]=-O
     CONFIG[BACKUP_TYPE]=
     CONFIG[ROTATE_SUBDIR]=backup-NUM1
     CONFIG[RUNNING_DIRNAME]=backup-running
@@ -367,6 +368,19 @@ config_param_get() {
 }
 
 ###############################
+## Parse config to check if a given parameter exists
+##  $1 -> File to search
+##  $2 -> Name of parameter to get value for
+## Returns 0 if the parameter exists in the file, 1 if it does not
+config_param_exists() {
+    PARAM_FOUND=$( grep -E "^ *$2 *=" $1 )
+    if [[ $PARAM_FOUND != "" ]]; then
+        return 0
+    fi
+    return 1
+}
+
+###############################
 ## Parse config file given
 ## Returns 0 on success, 1 on error
 ## Any errors will be in PARSE_ERRORS
@@ -382,8 +396,11 @@ parse_config() {
         for KEY in "${!CONFIG[@]}"; do
             # Get variable values from config file
             CONFIG_VALUE=$(config_param_get $CONFIG_FILE $KEY)
+            # If key is NOTIFY_RSYNC_FLAGS, allow for setting value to empty
+            if [[ $KEY == "NOTIFY_RSYNC_FLAGS" ]] && config_param_exists $CONFIG_FILE $KEY; then
+                : # do nothing
             # If value is empty, leave as default
-            if [[ $CONFIG_VALUE == "" ]]; then
+            elif [[ $CONFIG_VALUE == "" ]]; then
                 CONFIG_VALUE=${CONFIG[$KEY]}
             fi
             # Update CONFIG values
@@ -1246,7 +1263,7 @@ runjob_rotation() {
 ###############################
 ## Generate an email report of skipped files, and log them as well
 runjob_skipped_files() {
-    RSYNC_FLAGS="-ai --dry-run --existing ${CONFIG[RSYNC_FLAGS]}"
+    RSYNC_FLAGS="-ai --dry-run --existing ${CONFIG[RSYNC_FLAGS]} ${CONFIG[NOTIFY_RSYNC_FLAGS]}"
     if [[ ${CONFIG[ALLOW_DELETIONS]} == "0" ]]; then
         RSYNC_FLAGS="$RSYNC_FLAGS --del"
     fi
