@@ -9,8 +9,38 @@ An easy to use file backup script where each job is based around a simple config
 - Can hard link identical files with a single backup
 - Very customizable
 
+Quick Example
+------------------------
+Setup SSH PubKey authentication between backup machine and client.  
 
-Quick Links
+Create a config file on backup machine:  
+```
+NOTIFY_EMAIL=admin@example.com
+SOURCE_DIR=server1.example.com:/home/ :/etc :/var/www
+TARGET_DIR=/backups/server1/
+BACKUP_TYPE=rotation
+MAX_ROTATIONS=30
+ROTATIONALS_HARD_LINK=1
+ALLOW_DELETIONS=1
+ALLOW_OVERWRITES=1
+LOG_DIR=/var/log/cfgbackup/
+COMPRESS_LOGS=1
+```
+
+Start the backup:  
+```
+cfgbackup my.conf run
+```
+
+Check the status of current/last run:  
+```
+cfgbackup my.conf status
+```
+
+That's all there is to getting started! But there is a whole lot more functionality and customization available.  
+
+
+Links
 ------------------------
 * [Dependencies](#dependencies)
 * [Installation](#installation)
@@ -190,11 +220,18 @@ Config Options
 <a name="source-dir"></a>
 `SOURCE_DIR` [Required]  
 The directory to create backups from. Can be local or remote
-via SSH.  
+via SSH. Can specify multiple directories, whitespace delimited. If specifying multiple
+remote directories, all directories must be on same host (limitation of rsync).  
+
+Source directories WITH a trailing slash will sync the contents of the source directory
+into the target backup. Source directories WITHOUT a trailing slash will sync the directory
+itself (along with its contents) into the target backup.  
 ```
 SOURCE_DIR=/home/
 SOURCE_DIR=/var/data
 SOURCE_DIR=backups@server.example.com:/path/to/files/
+SOURCE_DIR=/etc /var/www /home
+SOURCE_DIR=server.example.com:/etc :/var/www :/home
 ```
 
 <a name="target-dir"></a>

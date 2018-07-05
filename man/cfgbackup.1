@@ -1,4 +1,4 @@
-.TH "cfgbackup" "1" "26 Feb 2017" "" ""
+.TH "cfgbackup" "1" "03 Jul 2018" "" ""
 .SH "NAME"
 cfgbackup \- "cfgbackup's a fairly good backup"
 
@@ -45,6 +45,12 @@ Binary options allow values of 0 (disabled) or 1 (enabled).
 .TP
 .B SOURCE_DIR
 The directory to create backups from. Can be local or remote via SSH.
+Can specify multiple directories, whitespace delimited. If specifying multiple
+remote directories, all directories must be on same host (limitation of rsync).
+.IP
+Source directories WITH a trailing slash will sync the contents of the source directory
+into the target backup. Source directories WITHOUT a trailing slash will sync the directory
+itself (along with its contents) into the target backup.  
 
 .TP
 .B TARGET_DIR

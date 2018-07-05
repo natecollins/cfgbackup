@@ -21,7 +21,7 @@
 # SOFTWARE.
 ################################################################################
 
-VERSION=0.4.1
+VERSION=0.4.2
 
 #######################################
 # MISC HELPER FUNCTIONS
@@ -102,6 +102,7 @@ substr_index() {
     local PREMATCH="${HAYSTACK%%$NEEDLE*}"
     if [[ $PREMATCH != $HAYSTACK ]]; then
         echo ${#PREMATCH}
+        return
     fi
     echo -1
 }
@@ -422,6 +423,10 @@ parse_config() {
         fi
         if [[ ${CONFIG[BACKUP_TYPE]} == "mirror" && ${CONFIG[MIRROR_CONFLICT_ACTION]} != "update" && ${CONFIG[MIRROR_CONFLICT_ACTION]} != "delete" ]]; then
             PARSE_ERRORS+=("Value of MIRROR_CONFLICT_ACTION must be either update or delete.")
+        fi
+        read -r -a source_dirs <<< "${CONFIG[SOURCE_DIR]}"
+        if [[ ${CONFIG[BACKUP_TYPE]} == "mirror" && ${#source_dirs[@]} -gt 1 ]]; then
+            PARSE_ERRORS+=("Backup type of mirror can only have a single SOURCE_DIR directory.")
         fi
         # Ensure ROTATE_SUBDIR is valid
         if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
@@ -874,7 +879,7 @@ dirpath_is_remote() {
     DIRPATH="$1"
     local COLON_IDX=$( substr_index "${DIRPATH}" ":" )
     local SLASH_IDX=$( substr_index "${DIRPATH}" "/" )
-    if [[ $COLON_IDX -ge "0" && $COLON_IDX -lt $SLASH_IDX ]]; then
+    if [[ $COLON_IDX -ge 0 && $COLON_IDX -lt $SLASH_IDX ]]; then
         return 0
     fi
     return 1
@@ -891,31 +896,39 @@ command_check() {
     fi
 
     # Test source access
-    dirpath_is_remote "${CONFIG[SOURCE_DIR]}"
-    if [[ $? -eq 0 ]]; then
-        local COLON_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" ":" )+1
-        local SSH_CONNECT=${CONFIG[SOURCE_DIR]:0:$COLON_IDX}
-        local SSH_SOURCE=${CONFIG[SOURCE_DIR]:1+$COLON_IDX}
-        # Check SSH connection
-        ssh -o BatchMode=yes $SSH_CONNECT exit 0
-        if [[ $? != 0 ]]; then
-            echo "ERROR: Could not connect via SSH to ${SSH_CONNECT}"
-            exit 1
-        fi
-
-        # Check remote directory
-        ssh -o BatchMode=yes $SSH_CONNECT "[[ ! -d $SSH_SOURCE || ! -r $SSH_SOURCE ]]"
+    read -r -a SOURCE_DIRS <<< "${CONFIG[SOURCE_DIR]}"
+    LAST_SSH_CONNECT=
+    for SRC_DIR in "${SOURCE_DIRS[@]}"; do
+        dirpath_is_remote "${SRC_DIR}"
         if [[ $? -eq 0 ]]; then
-            echo "ERROR: Cannot read from remote source directory of ${SSH_SOURCE}"
-            exit 1
+            local COLON_IDX=$( substr_index "${SRC_DIR}" ":" )
+            local SSH_CONNECT=${SRC_DIR:0:$COLON_IDX}
+            local SSH_SOURCE=${SRC_DIR:1+$COLON_IDX}
+            if [[ -z $SSH_CONNECT ]]; then
+                SSH_CONNECT=$LAST_SSH_CONNECT
+            fi
+            # Check SSH connection
+            ssh -o BatchMode=yes $SSH_CONNECT exit 0
+            if [[ $? != 0 ]]; then
+                echo "ERROR: Could not connect via SSH to ${SSH_CONNECT}"
+                exit 1
+            fi
+            LAST_SSH_CONNECT=$SSH_CONNECT
+
+            # Check remote directory
+            ssh -o BatchMode=yes $LAST_SSH_CONNECT "[[ ! -d $SSH_SOURCE || ! -r $SSH_SOURCE ]]"
+            if [[ $? -eq 0 ]]; then
+                echo "ERROR: Cannot read from remote source directory of ${SSH_SOURCE}"
+                exit 1
+            fi
+        else
+            # Check local directory
+            if [[ ! -d ${SRC_DIR} || ! -r ${SRC_DIR} ]]; then
+                echo "ERROR: Cannot read from local source directory of ${SRC_DIR}"
+                exit 1
+            fi
         fi
-    else
-        # Check local directory
-        if [[ ! -d ${CONFIG[SOURCE_DIR]} || ! -r ${CONFIG[SOURCE_DIR]} ]]; then
-            echo "ERROR: Cannot read from local source directory of ${CONFIG[SOURCE_DIR]}"
-            exit 1
-        fi
-    fi
+    done
 
     # Test target access
     if [[ ! -d ${CONFIG[TARGET_DIR]} || ! -w ${CONFIG[TARGET_DIR]} ]]; then
@@ -1133,14 +1146,23 @@ hardlink_identicals() {
 ## Escape the rsync source path, including the user and host for remote ssh sources
 ## Output the escaped path
 escaped_rsync_source() {
-    ESCPATH=$( epath_join ${CONFIG[SOURCE_DIR]} )
-    dirpath_is_remote "${CONFIG[SOURCE_DIR]}"
-    if [[ $? == 0 ]]; then
-        local COLON_IDX=$( substr_index "${CONFIG[SOURCE_DIR]}" ":" )+1
-        local SSH_CONNECT=${CONFIG[SOURCE_DIR]:0:$COLON_IDX}
-        local SSH_SOURCE=${CONFIG[SOURCE_DIR]:1+$COLON_IDX}
-        ESCPATH="${SSH_CONNECT}:\"$( epath_join "$SSH_SOURCE" )\""
-    fi
+    read -r -a SOURCE_DIRS <<< "${CONFIG[SOURCE_DIR]}"
+    ESCPATH=
+    for SRC_DIR in "${SOURCE_DIRS[@]}"; do
+        TRAILSLASH=${SRC_DIR: -1}
+        if [[ $TRAILSLASH != "/" ]]; then
+            TRAILSLASH=
+        fi
+        ESCSRCPATH="$( epath_join ${SRC_DIR} )${TRAILSLASH}"
+        dirpath_is_remote "${SRC_DIR}"
+        if [[ $? == 0 ]]; then
+            local COLON_IDX=$( substr_index "${SRC_DIR}" ":" )
+            local SSH_CONNECT=${SRC_DIR:0:$COLON_IDX}
+            local SSH_SOURCE=${SRC_DIR:1+$COLON_IDX}
+            ESCSRCPATH="${SSH_CONNECT}:\"$( epath_join "$SSH_SOURCE" )${TRAILSLASH}\""
+        fi
+        ESCPATH="${ESCPATH} ${ESCSRCPATH}"
+    done
     echo "$ESCPATH"
 }
 
@@ -1161,7 +1183,7 @@ runjob_sync() {
     # Exclude PID_FILE from being synced
     RSYNC_FLAGS="${RSYNC_FLAGS} --exclude=/${PID_FILE}"
 
-    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM}/ ${RUN_DIR}/"
+    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR}/"
     log_entry "| Running rsync: $RSYNC_COMMAND"
     RSYNC_COMMAND="$RSYNC_COMMAND >> ${LOG_FILE} 2>&1"
     eval $RSYNC_COMMAND
@@ -1233,7 +1255,7 @@ runjob_rotation() {
     fi
 
     SYNC_FROM=$( escaped_rsync_source )
-    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM}/ ${RUN_DIR}/"
+    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR}/"
     log_entry "| Running rsync: $RSYNC_COMMAND"
     RSYNC_COMMAND="$RSYNC_COMMAND >> ${LOG_FILE} 2>&1"
     eval $RSYNC_COMMAND
@@ -1275,7 +1297,7 @@ runjob_skipped_files() {
         RSYNC_FLAGS="${RSYNC_FLAGS} --exclude=/${PID_FILE}"
     fi
 
-    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM}/ ${RUN_DIR}/"
+    RSYNC_COMMAND="${CONFIG[RSYNC_PATH]} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR}/"
     log_entry "| Checking for skipped files..."
     log_entry "| Running rsync: $RSYNC_COMMAND"
     SKIP_RESULTS=$( $RSYNC_COMMAND | tee -a $LOG_FILE 2>&1 )
