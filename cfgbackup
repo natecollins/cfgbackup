@@ -315,7 +315,7 @@ log_last_file() {
     LM_PATH=$( epath_join ${CONFIG[LOG_DIR]} )
     LM_PATH=$( path_join $LM_PATH $LOG_MATCH )
     # Get list of files
-    LASTLOG=( $( ls -1 $LM_PATH 2> /dev/null | tail -n 1 ) )
+    LASTLOG=( $( ls -tr1 $LM_PATH 2> /dev/null | tail -n 1 ) )
     # Return last entry
     echo $LASTLOG
 }
