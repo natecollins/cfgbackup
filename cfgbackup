@@ -302,7 +302,11 @@ log_init() {
 ## Create a logfile entry
 ##  $1 -> Log message entry
 log_entry() {
-    echo "$1" >> $LOG_FILE
+    if [[ $LOG_TO_FILE != "0" ]]; then
+        echo "$1" >> $LOG_FILE
+    else
+        echo "$1"
+    fi
 }
 
 ###############################
@@ -327,6 +331,8 @@ log_last_file() {
 ###############################
 ## Creates an array of config variables with default values
 default_config() {
+    declare -g LOG_TO_FILE
+    LOG_TO_FILE=1
     declare -g -A CONFIG
     CONFIG[NOTIFY_EMAIL]=
     CONFIG[LOG_DIR]=/var/log/cfgbackup/
@@ -627,7 +633,7 @@ rotate_reset_date() {
             CHECK_DIR=$( epath_join ${CONFIG[TARGET_DIR]} "${CHECK_SUB}.0" )
         fi
 
-        echo "Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $CHECK_DIR )"
+        log_entry "| Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $CHECK_DIR )"
         # Rename to complete dir
         mv $RUN_DIR $CHECK_DIR
         if [[ $? -ne 0 ]]; then
@@ -649,7 +655,7 @@ rotate_reset_num() {
             echo "ERROR: Can't reset! Final rotation dir already exists: $RESET_DIR"
             exit 1
         fi
-        echo "Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $RESET_DIR )"
+        log_entry "| Renaming: ${CONFIG[RUNNING_DIRNAME]} => $( basename $RESET_DIR )"
         mv $RUN_DIR $RESET_DIR
         if [[ $? -ne 0 ]]; then
             echo "ERROR: Could not rename directory to: ${RESET_DIR}"
@@ -1600,7 +1606,11 @@ reset_mvrundir() {
 
 ###############################
 ## For interactive terminals, get confirmation before killing a runnning job
+##  $1 -> If set to 1, will "accept" the failed backup; otherwise (default) it will reset the job
 command_reset() {
+    ACCEPT=${1:-0}
+    LOG_TO_FILE="0"
+    RESET_NAME="reset"
     if status_is_ready; then
         echo "Job '$CONF_NAME' is ready and does not need to be reset."
         exit 0
@@ -1610,12 +1620,17 @@ command_reset() {
         return
     fi
     reset_rmpidfile
-    reset_mvrundir
+    if [[ $ACCEPT == "1" ]]; then
+        rotate_complete
+        RESET_NAME="accept"
+    else
+        reset_mvrundir
+    fi
 
     if status_is_ready; then
-        echo "Job '$CONF_NAME' has been reset successfully."
+        echo "Job '$CONF_NAME' action $RESET_NAME completed successfully."
     else
-        echo "Job reset for '$CONF_NAME' failed!"
+        echo "Job action $RESET_NAME for '$CONF_NAME' failed!"
         exit 1
     fi
 }
@@ -1704,6 +1719,8 @@ runhelp() {
     echo "  run     - Run the backup according to the config file provided."
     echo "  reset   - Resets partially completed or failed backups. This will"
     echo "            abort a currently running backup."
+    echo "  accept  - Accepts as partially completed or failed backup as"
+    echo "            successful. This will abort a currently running backup."
     echo ""
     echo "cfgbackup v${VERSION}"
     echo ""
@@ -1743,7 +1760,7 @@ globals_init() {
 ## Validate the command given and select the appropriate action to perform
 select_command() {
     # Validate command
-    VALID_COMMANDS=(check status list run reset)
+    VALID_COMMANDS=(check status list run reset accept)
     array_contains VALID_COMMANDS $COMMAND
     if [[ $? != 0 ]]; then
         runhelp
@@ -1770,6 +1787,9 @@ select_command() {
     fi
     if [[ $COMMAND == "reset" ]]; then
         command_reset
+    fi
+    if [[ $COMMAND == "accept" ]]; then
+        command_reset "1"
     fi
 }
 

@@ -125,6 +125,7 @@ Commands
 - [`status`](#command-status)
 - [`list`](#command-list)
 - [`reset`](#command-reset)
+- [`accept`](#command-accept)
 
 
 <a name="command-check"></a>
@@ -191,6 +192,19 @@ you start a new job.
 Note: When running reset on a job with DATE based subdirectories, the command will
 reset the folder to a date just older than the oldest backup directory, not
 necessarily the date it was before running the job.  
+
+
+<a name="command-accpet"></a>
+**Accept Command**  
+The `accept` command is a counterpart to the to `reset` command. Rather than putting
+the incomplete backup as the oldest backup directory (and thus set to be overwritten
+during the next run), the `accept` command marks the incomplete backup as successful
+and sets it as the newest backup. This is useful if the backup was mostly okay, and
+you don't want to discard it entirely. Other than this difference, the `accept` command
+operates the same as the `reset` command.  
+```
+./cfgbackup alpha.conf accept
+```
 
 
 Config Options
