@@ -11,6 +11,7 @@ _cfgbackup()
         COMMANDS=( check status list run reset accept )
         COMPREPLY=( $(compgen -W "${COMMANDS[*]}" -- "$CURRENT") )
     fi
+    shopt -u nullglob
     return 0
 }
 complete -F _cfgbackup cfgbackup

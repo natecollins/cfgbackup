@@ -316,8 +316,8 @@ log_last_file() {
     # List files that can match LOG_FILENAME minus exact DATE and TIME variables
     LOG_MATCH=${CONFIG[LOG_FILENAME]//DATE/*}
     LOG_MATCH=${LOG_MATCH//TIME/*}
-    LM_PATH=$( epath_join ${CONFIG[LOG_DIR]} )
-    LM_PATH=$( path_join $LM_PATH $LOG_MATCH )
+    LM_PATH=$( epath_join "${CONFIG[LOG_DIR]}" )
+    LM_PATH=$( path_join "$LM_PATH" "$LOG_MATCH" )
     # Get list of files
     LASTLOG=( $( ls -tr1 $LM_PATH 2> /dev/null | tail -n 1 ) )
     # Return last entry
