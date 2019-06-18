@@ -1,6 +1,13 @@
 #!/bin/bash
 
 ###############################
+# Ensure build by root user
+if (( ${EUID} != 0 )); then
+    echo "Please build package as root superuser."
+    exit 1
+fi
+
+###############################
 ## Parse a value for a given config line
 ##  $1 -> File to search
 ##  $2 -> Name of parameter to get value for
