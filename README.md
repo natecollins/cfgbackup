@@ -225,6 +225,7 @@ Config Options
 - [`MIRROR_CONFLICT_ACTION`](#mirror-conflict-action)
 - [`RSYNC_FLAGS`](#rsync-flags)
 - [`NOTIFY_RSYNC_FLAGS`](#notify-rsync-flags)
+- [`RSYNC_EXIT_CODE_SUCCESS`](#rsync-exit-code-success)
 - [`PRE_SCRIPT`,`SUCCESS_SCRIPT`,`FAILED_SCRIPT`,`FINAL_SCRIPT`](#script-options)
 - [`PRE_SCRIPT_ERROR_EXIT`](#pre-script-error-exit)
 - [`RUNNING_DIRNAME`](#running-dirname)
@@ -418,6 +419,16 @@ The default value is the `-O` flag is recommended, which stops reporting of
 directories with timestamp differences.  
 ```
 NOTIFY_RSYNC_FLAGS=-O
+```
+
+<a name="rsync-exit-code-success"></a>
+`RSYNC_EXIT_CODE_SUCCESS` [Default value: `24`]  
+Exit codes from rsync to treat as a successful backup run. These are in addition to 0, which
+is always a success. This is useful as a means of preventing minor issues from stopping a rotational backup
+from finishing. If this variable is not set in the config, it defaults to 24. Setting multiple exit codes
+is allowed as a comma delimited list.  
+```
+NOTIFY_RSYNC_FLAGS=23,24
 ```
 
 <a name="script-options"></a>

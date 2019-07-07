@@ -165,6 +165,20 @@ to the NOTIFY_EMAIL address. You can add additional flags to that second rsync j
 .IP
 Default: -O
 
+            # Treat listed rsync exit codes as a success run, allowing rotational backups to complete
+            # their rotation and not prevent the next backup from running.
+            # Exit code of 0 is always a success and does not need to be listed
+            # If RSYNC_EXIT_CODE_SUCCESS variable is not set, a default of 24 (vanished source files) is used
+            # Multiple exit codes can be listed by comma delimiting them, e.g. 24,23
+.TP
+.B RSYNC_EXIT_CODE_SUCCESS
+Exit codes from rsync to treat as a successful backup run. These are in addition to 0, which
+is always a success. This is useful as a means of preventing minor issues from stopping a rotational backup
+from finishing. If this variable is not set in the config, it defaults to 24. Setting multiple exit codes
+is allowed as a comma delimited list (e.g. 23,24).
+.IP
+Default: 24
+
 .TP
 .B PRE_SCRIPT, SUCCESS_SCRIPT, FAILED_SCRIPT, FINAL_SCRIPT
 Script options, when specified, run at specific times of a backup job. If a script returns
