@@ -21,7 +21,7 @@
 # SOFTWARE.
 ################################################################################
 
-VERSION=0.4.4
+VERSION=0.5.0
 
 #######################################
 # MISC HELPER FUNCTIONS
@@ -1075,7 +1075,7 @@ command_status() {
     echo ""
     LAST_LOGFILE=$( log_last_file )
     if [[ ! -z $LAST_LOGFILE ]]; then
-        echo "Log file:             $( basename $LAST_LOGFILE )"
+        echo "Log file:             ${LAST_LOGFILE}"
         echo "Latest log messages:"
         tail -n 4 $LAST_LOGFILE | sed 's/^/  /'
     fi
