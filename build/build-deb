@@ -61,6 +61,7 @@ echo "Creating data.tar.gz..."
 mkdir -p "$DIST_DIR/data"
 mkdir -p "$DIST_DIR/data/usr/bin"
 cp "$SRC_DIR/cfgbackup" "$DIST_DIR/data/usr/bin"
+chmod -w "$DIST_DIR/data/usr/bin"
 mkdir -p "$DIST_DIR/data/usr/share/doc/cfgbackup"
 cp "$SRC_DIR/example.conf" "$DIST_DIR/data/usr/share/doc/cfgbackup"
 cp "$SRC_DIR/README.md" "$DIST_DIR/data/usr/share/doc/cfgbackup"
@@ -88,6 +89,7 @@ cp "$SRC_DIR/extra/cfgbackups_auto.bash" "$DIST_DIR/data/etc/bash_completion.d/c
 mkdir -p "$DIST_DIR/data/var/log/cfgbackup/"
 chmod 750 "$DIST_DIR/data/var/log/cfgbackup/"
 cd "$DIST_DIR/data"
+chmod -w "$DIST_DIR/data/"
 tar -czvf ../data.tar.gz ./
 cd "$BUILD_DIR"
 
