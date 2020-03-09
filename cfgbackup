@@ -150,7 +150,10 @@ rsync_exists() {
 ## Returns 0 if found and executable
 hardlink_exists() {
     DUMMY=$( ${CONFIG[HARDLINK_PATH]} -h 2>&1 )
-    return $?
+    if [[ $? -eq 127 ]]; then
+        return 1
+    fi
+    return 0
 }
 
 ###############################
