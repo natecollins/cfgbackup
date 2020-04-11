@@ -275,7 +275,7 @@ BACKUPS_TYPE=rotation
 `NOTIFY_EMAIL`[Deafult value: ` ` (blank)]  
 The email to send failures and notification to. You must have a Mail Transfer Agent
 installed to handle actual sending of email. If this setting is left blank,
-then no emails will be sent. Setting this is highly recommened!  
+then no emails will be sent. Setting this is highly recommended!  
 ```
 NOTIFY_EMAIL=admin@example.com
 NOTIFY_EMAIL=root@localhost
@@ -370,8 +370,8 @@ are missing from the source directory. If set to `0`, then no file deletions wil
 additionally, the list of files that do not exist in the source directory will be logged and emailed to
 the value of `NOTIFY_EMAIL`.  
 With a value of `1`, this adds the `--del` flag to the rsync command.  
-With a value of empty string (no value), missing files from the source directory will not be skipped or reported as
-such, and no flags are added to the rsync command.  
+With a value of empty string (no value) or any non 0 or 1 value, missing files from the source directory will not
+be skipped or reported as such, and no flags are added to the rsync command.  
 Has no effect if the JOB_TYPE is set to `mirror`.  
 ```
 ALLOW_DELETIONS=0

@@ -21,7 +21,7 @@
 # SOFTWARE.
 ################################################################################
 
-VERSION=0.5.1
+VERSION=0.5.2
 
 #######################################
 # MISC HELPER FUNCTIONS
@@ -222,7 +222,7 @@ mail_exists() {
 ##  $3 -> Message
 mailer() {
     if ! mail_exists; then
-        log_entry "| Unable to send email to ${RECIPIENT}; could not find program: ${COMMAND[MAIL_PATH]}"
+        log_entry "| Unable to send email to ${RECIPIENT}; could not find program: ${CONFIG[MAIL_PATH]}"
         return 1
     fi
     RECIPIENT=$1
@@ -412,6 +412,8 @@ config_rsync_exit_successful() {
 parse_config() {
     declare -a PARSE_ERRORS
     default_config
+    # Setting these to empty is allowed and the empty value will override the default value
+    ALLOWED_EMPTY=( NOTIFY_RSYNC_FLAGS RSYNC_EXIT_CODE_SUCCESS ALLOW_DELETIONS ALLOW_OVERWRITES )
 
     # Verify config file exists and is readable
     if [[ ! -f $CONFIG_FILE || ! -r $CONFIG_FILE ]]; then
@@ -421,8 +423,8 @@ parse_config() {
         for KEY in "${!CONFIG[@]}"; do
             # Get variable values from config file
             CONFIG_VALUE=$(config_param_get $CONFIG_FILE $KEY)
-            # If key is NOTIFY_RSYNC_FLAGS or RSYNC_EXIT_CODE_SUCCESS, allow for setting value to empty
-            if [[ $KEY == "NOTIFY_RSYNC_FLAGS" || $KEY == "RSYNC_EXIT_CODE_SUCCESS" ]] && config_param_exists $CONFIG_FILE $KEY; then
+            # If key is allowed to have an empty value, then do not set the default value
+            if array_contains ALLOWED_EMPTY "$KEY" && config_param_exists $CONFIG_FILE $KEY; then
                 : # do nothing
             # If value is empty, leave as default
             elif [[ $CONFIG_VALUE == "" ]]; then

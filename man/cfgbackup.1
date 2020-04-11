@@ -129,8 +129,8 @@ Default: backup-NUM1
 .B ALLOW_DELETIONS
 Files may be deleted from the target directory if they are missing
 from the source directory. If disabled (value of 0), will send notification on what files
-are missing from source directory. If set to empty string (no value), then no notification
-will be sent and the rsync flag to allow deletions will not set.
+are missing from source directory. If set to empty string (no value) or any non 0 or 1 value,
+then no notification will be sent and the rsync flag to allow deletions will not set.
 Ignored if JOB_TYPE is mirror.
 .IP
 Default: 1
