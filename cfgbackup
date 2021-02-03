@@ -687,23 +687,25 @@ rotate_reset_num() {
 ###############################
 ## Rotate directories after backup completes and rename running directory
 rotate_complete() {
-    MATCH_NUM0=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "NUM0" )
-    MATCH_DATE=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "DATE" )
-    if [[ $MATCH_DATE != "-1" ]]; then
-        rotate_complete_date
-    elif [[ $MATCH_NUM0 != "-1" ]]; then
-        RE0="NUM(0*)0[^01]?"
-        RE1="NUM(0+)1"
-        if [[ ${CONFIG[ROTATE_SUBDIR]} =~ $RE1 ]]; then
-            rotate_complete_num "1" ${#BASH_REMATCH[1]}
-        elif [[ ${CONFIG[ROTATE_SUBDIR]} =~ $RE0 ]]; then
-            rotate_complete_num "0" ${#BASH_REMATCH[1]}
+    if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
+        MATCH_NUM0=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "NUM0" )
+        MATCH_DATE=$( substr_index "${CONFIG[ROTATE_SUBDIR]}" "DATE" )
+        if [[ $MATCH_DATE != "-1" ]]; then
+            rotate_complete_date
+        elif [[ $MATCH_NUM0 != "-1" ]]; then
+            RE0="NUM(0*)0[^01]?"
+            RE1="NUM(0+)1"
+            if [[ ${CONFIG[ROTATE_SUBDIR]} =~ $RE1 ]]; then
+                rotate_complete_num "1" ${#BASH_REMATCH[1]}
+            elif [[ ${CONFIG[ROTATE_SUBDIR]} =~ $RE0 ]]; then
+                rotate_complete_num "0" ${#BASH_REMATCH[1]}
+            else
+                echo "ERROR: Unexpected rotate directory variable name"
+                exit 1
+            fi
         else
-            echo "ERROR: Unexpected rotate directory variable name"
-            exit 1
+            rotate_complete_num "1"
         fi
-    else
-        rotate_complete_num "1"
     fi
 }
 
