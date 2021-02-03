@@ -21,7 +21,7 @@
 # SOFTWARE.
 ################################################################################
 
-VERSION=0.5.2
+VERSION=0.6.0
 
 #######################################
 # MISC HELPER FUNCTIONS
@@ -192,6 +192,20 @@ bash_gte_420() {
 coreutils_sort() {
     DUMMY=$( echo | ${CONFIG[SORT_PATH]} -V )
     if [[ $? -eq 0 ]]; then
+        return 0
+    fi
+    return 1
+}
+
+###############################
+## Check running from a TTY with color support
+## Return 0 if color supported TTY, 1 otherwise
+color_tty() {
+    tty -s
+    IS_TTY=$?
+    COLOR_CNT=$( tput colors 2> /dev/null )
+    HAS_COLORS=$?
+    if [[ $IS_TTY -eq 0 ]] && [[ $HAS_COLORS -eq 0 ]] && [[ $COLOR_CNT -gt 2 ]]; then
         return 0
     fi
     return 1
@@ -981,7 +995,7 @@ command_check() {
 ## Check if the config is not busy
 ## Returns 1 if running, failed, or has uncleanly died, 0 otherwise
 status_is_ready() {
-    if status_is_running || status_is_failed || status_is_dead; then
+    if status_is_running || status_is_failed || status_is_dead || status_is_paused; then
         return 1
     fi
     return 0
@@ -991,7 +1005,7 @@ status_is_ready() {
 ## Check if the config is busy
 ## Returns 0 if running, failed, or has uncleanly died, 1 otherwise
 status_is_busy() {
-    if status_is_running || status_is_failed || status_is_dead; then
+    if status_is_running || status_is_failed || status_is_dead || status_is_paused; then
         return 0
     fi
     return 1
@@ -1038,10 +1052,26 @@ status_is_failed() {
 }
 
 ###############################
+## Check if the backup job PID is running but stopped
+## Returns 0 if both a job is running and that job is in a stopped state; 1 otherwise
+status_is_paused() {
+    if status_is_running; then
+        PID=$( cat $PID_FULL )
+        PID_STATE=$( ps -o state= -p $PID )
+        if [[ $PID_STATE == "T" ]]; then
+            return 0;
+        fi
+    fi
+    return 1
+}
+
+###############################
 ## Run status report
 command_status() {
     CONFIG_STAT="idle"
-    if status_is_running; then
+    if status_is_paused; then
+        CONFIG_STAT="paused"
+    elif status_is_running; then
         CONFIG_STAT="running"
     elif status_is_failed; then
         CONFIG_STAT="failed - see log"
@@ -1097,6 +1127,9 @@ command_status() {
 command_run() {
     if status_is_busy; then
         echo "ERROR: Cannot start new backup job if previous job is not completed."
+        if status_is_paused; then
+            echo "NOTE: Running job is currently paused; use \"cfgbackup '${CONFIG_FILE}' resume\" to un-pause it."
+        fi
         exit 1
     fi
 
@@ -1684,7 +1717,9 @@ command_list() {
         SDIR_FULL=$( epath_join "${CONFIG[TARGET_DIR]}" "$SDIR" )
         SDIR_STATE=""
         if [[ $SDIR_FULL == $RUN_DIR ]]; then
-            if status_is_running; then
+            if status_is_paused; then
+                SDIR_STATE="paused"
+            elif status_is_running; then
                 SDIR_STATE="running"
             elif status_is_dead; then
                 SDIR_STATE="dead"
@@ -1717,6 +1752,35 @@ command_list() {
 }
 
 #######################################
+# SIGNAL COMMANDS
+#######################################
+command_signal() {
+    SIGNAL=$1
+
+    if ! status_is_running; then
+        echo "No backup job is currently running for: $CONFIG_FILE"
+        exit 1
+    fi
+
+    PID_NUM=$( cat $PID_FULL )
+    if [[ -t 0 ]] && [[ $SIGNAL -eq 9 ]]; then
+        echo "This will uncleanly kill the job. Using \"cfgbackup '${CONFIG_FILE}' reset\" is recommended instead."
+        read -p "Do you still want to kill the job? [y/N] " -n 1
+        echo
+        if [[ $REPLY != "y" ]]; then
+            echo "Leaving job running."
+            return 0
+        fi
+    fi
+
+    kill -${SIGNAL} $PID_NUM
+    sleep 1
+
+    command_status
+    return 0
+}
+
+#######################################
 # HELP, GLOBALS, AND COMMAND SELECT
 #######################################
 
@@ -1743,6 +1807,8 @@ runhelp() {
     echo "            abort a currently running backup."
     echo "  accept  - Accepts a partially completed or failed backup as"
     echo "            successful. This will abort a currently running backup."
+    echo "  pause   - Pause a running backup job using a SIGSTOP signal."
+    echo "  resume  - Resume a paused backup job using a SIGCONT signal."
     echo ""
     echo "cfgbackup v${VERSION}"
     echo ""
@@ -1782,7 +1848,7 @@ globals_init() {
 ## Validate the command given and select the appropriate action to perform
 select_command() {
     # Validate command
-    VALID_COMMANDS=(check status list run reset accept)
+    VALID_COMMANDS=(check status list run reset accept pause resume kill)
     array_contains VALID_COMMANDS $COMMAND
     if [[ $? != 0 ]]; then
         runhelp
@@ -1812,6 +1878,15 @@ select_command() {
     fi
     if [[ $COMMAND == "accept" ]]; then
         command_reset "1"
+    fi
+    if [[ $COMMAND == "pause" ]]; then
+        command_signal 19
+    fi
+    if [[ $COMMAND == "resume" ]]; then
+        command_signal 18
+    fi
+    if [[ $COMMAND == "kill" ]]; then
+        command_signal 9
     fi
 }
 

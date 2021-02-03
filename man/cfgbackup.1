@@ -32,13 +32,21 @@ List rotational backup subdirectories for the given conf.
 Run the backup according to the config file provided.
 .TP
 .B reset
-Resets partially completed or failed backups. This will
-abort a currently running backup.
+Resets partially completed or failed backups. This is
+also a safe way to abort a currently running backup.
 .TP
 .B accept
 Accepts a partially completed or failed backup as if it
 completed successfully. Otherwise operates the same as a
 reset command.
+.TP
+.B pause
+Pauses a running backup job process by sending a SIGSTOP
+signal, then displays the current job status.
+.TP
+.B resume
+Resumes a paused backup job process by sending a SIGCONT
+signal, then displays the current job status.
 
 .SH "CONFIG OPTIONS"
 .PP

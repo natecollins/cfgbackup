@@ -8,7 +8,7 @@ _cfgbackup()
         CFGFILES=( *.cfg *.conf /etc/cfgbackup/*.cfg /etc/cfgbackup/*.conf )
         COMPREPLY=( $(compgen -W "${CFGFILES[*]}" -- "$CURRENT") )
     elif [[ $COMP_CWORD -eq 2 ]]; then
-        COMMANDS=( check status list run reset accept )
+        COMMANDS=( check status list run reset accept pause resume kill )
         COMPREPLY=( $(compgen -W "${COMMANDS[*]}" -- "$CURRENT") )
     fi
     shopt -u nullglob

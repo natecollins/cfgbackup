@@ -126,6 +126,8 @@ Commands
 - [`list`](#command-list)
 - [`reset`](#command-reset)
 - [`accept`](#command-accept)
+- [`pause`](#command-pause)
+- [`resume`](#command-resume)
 
 
 <a name="command-check"></a>
@@ -194,7 +196,7 @@ reset the folder to a date just older than the oldest backup directory, not
 necessarily the date it was before running the job.  
 
 
-<a name="command-accpet"></a>
+<a name="command-accept"></a>
 **Accept Command**  
 The `accept` command is a counterpart to the to `reset` command. Rather than putting
 the incomplete backup as the oldest backup directory (and thus set to be overwritten
@@ -202,6 +204,24 @@ during the next run), the `accept` command marks the incomplete backup as succes
 and sets it as the newest backup. This is useful if the backup was mostly okay, and
 you don't want to discard it entirely. Other than this difference, the `accept` command
 operates the same as the `reset` command.  
+```
+./cfgbackup alpha.conf accept
+```
+
+
+<a name="command-pause"></a>
+**Pause Command**  
+The `puase` command simply attempts to pause a currently running backup job process.
+This is done via sending a SIGSTOP signal to the process.  
+```
+./cfgbackup alpha.conf pause
+```
+
+
+<a name="command-resume"></a>
+**Resume Command**  
+The `puase` command will resume a paused backup job process.
+This is done via sending a SIGCONT signal to the paused process.  
 ```
 ./cfgbackup alpha.conf accept
 ```
