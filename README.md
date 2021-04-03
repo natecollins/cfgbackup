@@ -16,7 +16,7 @@ Quick Example
 ------------------------
 First, setup SSH PubKey authentication between backup machine and client.  
 
-Create a config file on the target machine (where files will be backed up to):  
+Create a config file on the target machine (the machine where files will be backed up to):  
 ```
 NOTIFY_EMAIL=admin@example.com
 SOURCE_DIR=server1.example.com:/home/ :/etc :/var/www
@@ -32,33 +32,33 @@ COMPRESS_LOGS=1
 
 Start the backup on target machine:  
 ```
-# cfgbackup my.conf run
+# cfgbackup /etc/cfgbackup/myjob.conf run
 ```
 
 Check the status of current/last run:  
 ```
-# cfgbackup my.conf status
+# cfgbackup /etc/cfgbackup/myjob.conf status
 
 ======= cfgbackup job status =======
-Config:               my.conf
+Config:               myjob.conf
 Type:                 sync
 Status:               idle
 Started:              -
 Process ID:           -
-Last complete time:   2021-02-03 00:17:27
+Last complete time:   2021-04-03 01:29:01
 
-Log file:             /home/zeeg/workspace/cfgbackup/test/logs/test3_20210203.log
+Log file:             /var/log/cfgbackup/myjob_20210403.log
 Latest log messages:
 
   sent 555,214 bytes  received 5,072 bytes  1,120,572.00 bytes/sec
   total size is 531,247  speedup is 0.95
-  | JOB ENDED: 2021-02-03 00:10:01
+  | JOB ENDED: 2021-04-03 01:29:01
 ```
 
 For rotation type backups, you can list what backups are available:  
 ```
-# cfgbackup my.conf list
-Backups:  5 / 7
+# cfgbackup /etc/cfgbackup/myjob.conf list
+Backups:  5 / 30
 ------------------------------------------------------------
 backup-20210403                             2021-04-03 01:29
 backup-20210402                             2021-04-02 01:27
