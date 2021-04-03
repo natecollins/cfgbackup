@@ -1,19 +1,22 @@
 cfgbackup - "cfgbackup's a fairly good backup"
 ========================================
-An easy to use file backup script where each job is based around a simple config file.  
-- Does rotational backups, one-directional syncing, or mirroring of directories
-- Detailed logging
+An straightforward file backup script where each job is based around a simple config file.
+Written in Bash and using rsync for file transfers.  
+
+`cfgbackup` offers the following:
+- Rotational backups, one-directional syncing, or bi-directional mirroring of directories
+- Detailed logging of each job, including built-in log archiving
 - Email notifications on failure
 - Resulting backups are simply files in directories, no special tools for recovery or inspection
 - Can hard link unchanged files between rotational backups
 - Can hard link identical files with a single backup
-- Very customizable
+- Easy to customize on a per-job basis
 
 Quick Example
 ------------------------
-Setup SSH PubKey authentication between backup machine and client.  
+First, setup SSH PubKey authentication between backup machine and client.  
 
-Create a config file on backup machine:  
+Create a config file on the target machine (where files will be backed up to):  
 ```
 NOTIFY_EMAIL=admin@example.com
 SOURCE_DIR=server1.example.com:/home/ :/etc :/var/www
@@ -27,17 +30,44 @@ LOG_DIR=/var/log/cfgbackup/
 COMPRESS_LOGS=1
 ```
 
-Start the backup:  
+Start the backup on target machine:  
 ```
-cfgbackup my.conf run
+# cfgbackup my.conf run
 ```
 
 Check the status of current/last run:  
 ```
-cfgbackup my.conf status
+# cfgbackup my.conf status
+
+======= cfgbackup job status =======
+Config:               my.conf
+Type:                 sync
+Status:               idle
+Started:              -
+Process ID:           -
+Last complete time:   2021-02-03 00:17:27
+
+Log file:             /home/zeeg/workspace/cfgbackup/test/logs/test3_20210203.log
+Latest log messages:
+
+  sent 555,214 bytes  received 5,072 bytes  1,120,572.00 bytes/sec
+  total size is 531,247  speedup is 0.95
+  | JOB ENDED: 2021-02-03 00:10:01
 ```
 
-That's all there is to getting started! But there is a whole lot more functionality and customization available.  
+For rotation type backups, you can list what backups are available:  
+```
+# cfgbackup my.conf list
+Backups:  5 / 7
+------------------------------------------------------------
+backup-20210403                             2021-04-03 01:29
+backup-20210402                             2021-04-02 01:27
+backup-20210401                             2021-04-01 01:27
+backup-20210331                             2021-03-31 01:28
+backup-20210330                             2021-03-30 01:27
+```
+
+That's all there is to getting started! Yet there is a whole lot more functionality and customization available.  
 
 
 Links
@@ -67,12 +97,13 @@ Dependencies
 
 Installation
 ------------------------
-Installation can be as simple as downloading the `cfgbackup` script, setting the execute flag, and placing it in a logical
-place, like `/usr/local/bin/`. You'll likely want to grab a copy of the `example.conf` file as well, to use as a template
-for creating backup jobs.  
+Installation can be as simple as downloading the `cfgbackup` script, setting the execute flag,
+and placing it in a logical place, like `/usr/local/bin/`. You'll likely want to grab a copy
+of the `example.conf` file as well, to use as a template for creating backup jobs.  
 
-For Debian based Linux distributions, you can use the `build/build-deb` script to create a `.deb` package, then install
-that with `dpkg` like any other package.  
+For Debian based Linux distributions, you can use the `build/build-deb` script to create
+a `.deb` package, then install that with `dpkg` like any other package. Pre-build packages
+are available at [https://github.com/natecollins/cfgbackup/releases](https://github.com/natecollins/cfgbackup/releases)
 
 
 Basic Usage
@@ -220,10 +251,10 @@ This is done via sending a SIGSTOP signal to the process.
 
 <a name="command-resume"></a>
 **Resume Command**  
-The `puase` command will resume a paused backup job process.
+The `resume` command will resume a paused backup job process.
 This is done via sending a SIGCONT signal to the paused process.  
 ```
-./cfgbackup alpha.conf accept
+./cfgbackup alpha.conf resume
 ```
 
 
