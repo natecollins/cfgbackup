@@ -448,7 +448,7 @@ is always a success. This is useful as a means of preventing minor issues from s
 from finishing. If this variable is not set in the config, it defaults to 24. Setting multiple exit codes
 is allowed as a comma delimited list.  
 ```
-NOTIFY_RSYNC_FLAGS=23,24
+RSYNC_EXIT_CODE_SUCCESS=23,24
 ```
 
 <a name="script-options"></a>
