@@ -1814,15 +1814,6 @@ runhelp() {
     echo ""
 }
 
-if [[ -z "$1" || $1 == "-h" || $1 == "--help" || $1 == "help" || $1 == "-V" || $1 == "--version" ]]; then
-    runhelp
-    exit 0
-fi
-
-# Grab command arguments
-CONFIG_FILE=$1
-COMMAND=$2
-
 ###############################
 ## Declare global variables
 globals_init() {
@@ -1891,10 +1882,24 @@ select_command() {
 }
 
 ###############################
-## cfgbackup starts here
-parse_config
-precheck_requirements
-globals_init
-log_init
-select_command
 
+# Detect if this file is being sourced
+SOURCED=0
+( return 0 2>/dev/null ) && SOURCED=1
+
+if [[ "$SOURCED" -ne 1 ]] && \
+   [[ -z "$1" || $1 == "-h" || $1 == "--help" || $1 == "help" || $1 == "-V" || $1 == "--version" ]]; then
+    runhelp
+    exit 0
+fi
+
+# cfgbackup exec starts here
+if [[ "$SOURCED" -ne 1 ]]; then
+    CONFIG_FILE="$1"
+    COMMAND="$2"
+    parse_config
+    precheck_requirements
+    globals_init
+    log_init
+    select_command
+fi

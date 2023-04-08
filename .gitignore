@@ -1,5 +1,6 @@
 *~
-*.swp
+.*.sw[po]
 test/
 build/dist-deb/
 build/dist-rpm/
+TODO*
