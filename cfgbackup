@@ -651,7 +651,12 @@ rotate_reset() {
 rotate_reset_date() {
     if [[ -d $RUN_DIR ]]; then
         OLDEST_DIR="${BACKUP_ROTATION_DIRS[-1]}"
-        DATE_MATCHER=${CONFIG[ROTATE_SUBDIR]/DATE/"([[:digit:]]{8})"}
+        DATE_GROUP="([[:digit:]]{8})"
+        DATE_MATCHER="${CONFIG[ROTATE_SUBDIR]/DATE/${DATE_GROUP}}"
+        if ! [[ "$OLDEST_DIR" =~ $DATE_MATCHER ]]; then
+            echo "ERROR: Invalid backup directory; no DATE found in: $OLDEST_DIR"
+            exit 1
+        fi
         OLDEST_DATE=${BASH_REMATCH[1]}
         USE_DATE=$( date +%Y%m%d -d "$OLDEST_DATE" )
 
