@@ -532,7 +532,7 @@ rotate_get_dirs() {
             fi
         fi
         LIST_TARGET=$( epath_join ${CONFIG[TARGET_DIR]} )
-        readarray BACKUP_ROTATION_DIRS < <( ls -1 ${LIST_TARGET} | grep "\\(${SDIR_MATCH}\\|${CONFIG[RUNNING_DIRNAME]}\\)" | ${CONFIG[SORT_PATH]} $SORT_FLAGS )
+        readarray -t BACKUP_ROTATION_DIRS < <( ls -1 ${LIST_TARGET} | grep "\\(${SDIR_MATCH}\\|${CONFIG[RUNNING_DIRNAME]}\\)" | ${CONFIG[SORT_PATH]} $SORT_FLAGS )
         # Ensure running and aborted dirs are listed first
         RUN_IDX=$( array_value_index BACKUP_ROTATION_DIRS ${CONFIG[RUNNING_DIRNAME]} )
         if [[ $RUN_IDX != "-1" ]]; then
