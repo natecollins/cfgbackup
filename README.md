@@ -85,7 +85,7 @@ Links
 
 Dependencies
 ------------------------
-- bash 4.2+
+- bash 4.3+
 - rsync (recommended 3.1.0+)
 - awk
 - sed
