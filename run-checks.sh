@@ -49,14 +49,18 @@ parse_args() {
 }
 
 msg() {
-    1>&2 echo "$1"
+    [[ -n "$TEST_FILE" ]] && PREFIX="(${TEST_FILE}) "
+    1>&2 echo "${PREFIX}$1"
 }
 
 run_shellcheck() {
     # -s shellcheck
     if [[ "${ARGS[SHELLCHECK]}" -eq 1 ]]; then
         msg "Proceeding with shellcheck."
-        # TODO
+        if ! shellcheck cfgbackup; then
+            echo "FAILURE: shellcheck did not succeed"
+            exit 1
+        fi
     fi
 }
 
@@ -65,7 +69,7 @@ run_unittests() {
     if [[ "${ARGS[UNITTESTS]}" -eq 1 ]]; then
         msg "Proceeding with unit tests."
         for TEST_FILE in tests/test*.sh; do
-            msg "Loading $TEST_FILE"
+            msg "Loading tests."
             source "$TEST_FILE"
             if [[ "$( type -t test_pre )" == "function" ]]; then
                 test_pre
@@ -87,6 +91,7 @@ run_unittests() {
                 unset -f test_post
             fi
         done
+        TEST_FILE=""
     fi
 }
 
