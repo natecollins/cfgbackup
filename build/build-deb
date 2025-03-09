@@ -122,7 +122,7 @@ cd "$BUILD_DIR"
 
 ###############################
 # Create deb archive
-DEB_FILE="cfgbackup-${VERSION}.deb"
+DEB_FILE="cfgbackup-v${VERSION}.deb"
 cd "$DIST_DIR"
 ar r "$DEB_FILE" debian-binary control.tar.gz data.tar.gz
 cd "$BUILD_DIR"
