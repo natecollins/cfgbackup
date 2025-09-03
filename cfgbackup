@@ -1139,7 +1139,7 @@ command_runscript() {
         log_entry "| Running $1: ${CONFIG[$1]}"
         SCRIPT_OUT=$( {
             eval "${CONFIG[$1]}"
-        } >> "$LOG_FILE" 2>&1 )
+        } | tee "$LOG_FILE" 2>&1 )
         SCRIPT_RET=$?
         if [[ $SCRIPT_RET -ne 0 ]]; then
             log_entry "| Script returned exit code: $SCRIPT_RET"
