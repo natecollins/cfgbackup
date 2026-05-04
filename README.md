@@ -277,7 +277,7 @@ Config Options
 - [`RSYNC_FLAGS`](#rsync-flags)
 - [`NOTIFY_RSYNC_FLAGS`](#notify-rsync-flags)
 - [`RSYNC_EXIT_CODE_SUCCESS`](#rsync-exit-code-success)
-- [`PRE_SCRIPT`,`SUCCESS_SCRIPT`,`FAILED_SCRIPT`,`FINAL_SCRIPT`](#script-options)
+- [`PRE_SCRIPT`,`PRE_SCRIPT_FILE`,`SUCCESS_SCRIPT`,`FAILED_SCRIPT`,`FINAL_SCRIPT`](#script-options)
 - [`PRE_SCRIPT_ERROR_EXIT`](#pre-script-error-exit)
 - [`RUNNING_DIRNAME`](#running-dirname)
 - [`PID_FILE`](#pid-file)
@@ -498,11 +498,12 @@ RSYNC_EXIT_CODE_SUCCESS=23,24
 ```
 
 <a name="script-options"></a>
-`PRE_SCRIPT`,`SUCCESS_SCRIPT`,`FAILED_SCRIPT`,`FINAL_SCRIPT`  
+`PRE_SCRIPT`,`PRE_SCRIPT_FILE`,`SUCCESS_SCRIPT`,`FAILED_SCRIPT`,`FINAL_SCRIPT`  
 All these script options allow for the setting
 of a script to run at a specific time during a backup job run. What you enter will be evaluated as a shell command,
 so placing multiple commands together and using pipes will also work.  
- - `PRE_SCRIPT` This script will be run immediately when the backup job starts (but after config if checked/parsed), before any other run actions.
+ - `PRE_SCRIPT` This inline script will be run immediately when the backup job starts (but after config if checked/parsed), before any other run actions.
+ - `PRE_SCRIPT_FILE` Can specify a file script to run immediately when the backup job starts, before any other run actions, but after the PRE_SCRIPT if it is also specified.
  - `SUCCESS_SCRIPT` Runs this script after the backup job has completed if rsync returns an exit code of 0; also waits until after hardlinks are created if `IDENTICALS_HARD_LINK` is set to 1.
  - `FAILED_SCRIPT` Runs this script immediate after rsync if rsync returns an exit code other than 0.
  - `FINAL_SCRIPT` This script runs as the last thing before the cfgbackup run job ends, regardless of success or failure of rsync.
@@ -516,9 +517,10 @@ FINAL_SCRIPT=~adminguy/gen-server-report
 
 <a name="pre-script-error-exit"></a>
 `PRE_SCRIPT_ERROR_EXIT` [Default value: `0`]  
-If set to 1, this will require the `PRE_SCRIPT` to have an exit code of 0,
-otherwise the backup job will send a failure notification and then immediately
-exit.  
+If set to 1, will require both the `PRE_SCRIPT` and `PRE_SCRIPT_FILE` to
+have an exit code of 0, otherwise the backup job will not be run.
+If only one pre-script method is specified, it must return 0.
+If both pre-script methods are specified, both must return 0.
 ```
 PRE_SCRIPT_ERROR_EXIT=1
 ```

@@ -183,12 +183,15 @@ is allowed as a comma delimited list (e.g. 23,24).
 Default: 24
 
 .TP
-.B PRE_SCRIPT, SUCCESS_SCRIPT, FAILED_SCRIPT, FINAL_SCRIPT
+.B PRE_SCRIPT, PRE_SCRIPT_FILE, SUCCESS_SCRIPT, FAILED_SCRIPT, FINAL_SCRIPT
 Script options, when specified, run at specific times of a backup job. If a script returns
 an exit code other than 0, a failure notificaiton email will be sent.
 .IP
 .B PRE_SCRIPT
-runs immediately when the backup job starts, before any other run actions.
+runs the specified inline immediately when the backup job starts, before any other run actions.
+.IP
+.B PRE_SCRIPT_FILE
+runs the specified script file immediately when the backup job starts, before any other run actions, but after the PRE_SCRIPT if also specified.
 .IP
 .B SUCCESS_SCRIPT
 runs after completion of rsync command (and hardlink process, if enabled), but only if rsync returns an exit code of 0.
@@ -201,8 +204,10 @@ runs as the last thing before the cfgbackup run job ends, regardless of success 
 
 .TP
 .B PRE_SCRIPT_ERROR_EXIT
-If set to 1, this will require the pre-script to have an exit code of 0, otherwise
-the backup job will send a failure notification then immediately exit.
+If set to 1, will require both the pre-script and pre-script file to have an
+exit code of 0, otherwise the backup job will not be run.
+If only one pre-script method is specified, it must return 0.
+If both pre-script methods are specified, both must return 0.
 .IP
 Default: 0
 

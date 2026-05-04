@@ -23,7 +23,7 @@
 # SOFTWARE.
 ################################################################################
 
-VERSION=0.6.2
+VERSION=0.6.3
 
 #######################################
 # MISC HELPER FUNCTIONS
@@ -309,7 +309,7 @@ log_init() {
     LOG_FILE=$( epath_join "${CONFIG[LOG_DIR]}" "${LOG_FILE}" )
     # Attempt to create the log directory if it doesn't exist
     mkdir -p "$LOG_DIR" > /dev/null 2>&1
-    return "$( log_can_write )"
+    log_can_write
 }
 
 ###############################
@@ -369,9 +369,13 @@ default_config() {
     CONFIG[IDENTICALS_HARD_LINK]=0
     CONFIG[COMPRESS_LOGS]=1
     CONFIG[PRE_SCRIPT]=
+    CONFIG[PRE_SCRIPT_FILE]=
     CONFIG[SUCCESS_SCRIPT]=
+    CONFIG[SUCCESS_SCRIPT_FILE]=
     CONFIG[FAILED_SCRIPT]=
+    CONFIG[FAILED_SCRIPT_FILE]=
     CONFIG[FINAL_SCRIPT]=
+    CONFIG[FINAL_SCRIPT_FILE]=
     CONFIG[PRE_SCRIPT_ERROR_EXIT]=0
     CONFIG[PID_FILE]=.cfgbackup.pid
     CONFIG[RSYNC_PATH]="rsync"
@@ -1107,7 +1111,8 @@ command_run() {
 
     # Record run pid in target dir cfgbackup.pid file
     log_entry "| JOB STARTED:  $( date +%Y-%m-%d\ %H:%M:%S )"
-    command_runscript PRE_SCRIPT
+    command_runscript_inline PRE_SCRIPT
+    command_runscript_file PRE_SCRIPT_FILE
     if [[ ${CONFIG[BACKUP_TYPE]} == "rotation" ]]; then
         runjob_rotation
     elif [[ ${CONFIG[BACKUP_TYPE]} == "sync" ]]; then
@@ -1115,7 +1120,8 @@ command_run() {
     elif [[ ${CONFIG[BACKUP_TYPE]} == "mirror" ]]; then
         runjob_mirror
     fi
-    command_runscript FINAL_SCRIPT
+    command_runscript_inline FINAL_SCRIPT
+    command_runscript_file FINAL_SCRIPT_FILE
     command_end
 }
 
@@ -1131,11 +1137,9 @@ command_end() {
 ## Run given script specified by the config, or do nothing if no script was set
 ## Will send email notice if script returns non 0 exit code
 ##  $1 -> Name of config script line to find
-command_runscript() {
-    ALLOWED_SCRIPTS=( PRE_SCRIPT SUCCESS_SCRIPT FAILED_SCRIPT FINAL_SCRIPT )
-    array_contains ALLOWED_SCRIPTS "$1"
-    FOUND_SCPT=$?
-    if [[ $FOUND_SCPT -eq 0 && -n ${CONFIG[$1]} ]]; then
+command_runscript_inline() {
+    declare -a ALLOWED_SCRIPTS=( PRE_SCRIPT SUCCESS_SCRIPT FAILED_SCRIPT FINAL_SCRIPT )
+    if array_contains ALLOWED_SCRIPTS "$1" && [[ -n ${CONFIG[$1]} ]]; then
         log_entry "| Running $1: ${CONFIG[$1]}"
         SCRIPT_OUT=$( {
             eval "${CONFIG[$1]}"
@@ -1144,9 +1148,36 @@ command_runscript() {
         if [[ $SCRIPT_RET -ne 0 ]]; then
             log_entry "| Script returned exit code: $SCRIPT_RET"
             # Send notify email about script failure
-            mailer "${CONFIG[NOTIFY_EMAIL]}" "cfgbackup job '${CONF_NAME}' had $1 script failure" "The $1 ( ${CONFIG[$1]} ) for job '${CONF_NAME}' failed with exit code ${SCRIPT_RET}. See logs for details."
+            mailer "${CONFIG[NOTIFY_EMAIL]}" \
+                   "cfgbackup job '${CONF_NAME}' had $1 script failure" \
+                   "The $1 ( ${CONFIG[$1]} ) for job '${CONF_NAME}' failed with exit code ${SCRIPT_RET}. See logs for details."
             if [[ $1 == "PRE_SCRIPT" && ${CONFIG[PRE_SCRIPT_ERROR_EXIT]} -eq 1 ]]; then
                 log_entry "| PRE_SCRIPT failed and PRE_SCRIPT_ERROR_EXIT is set; exiting."
+                log_entry "| JOB ENDED: $( date +%Y-%m-%d\ %H:%M:%S )"
+                exit 1
+            fi
+        fi
+    fi
+}
+
+###############################
+## Run given script file specified by the config, or do nothing if no script was set
+## Will send email notice if script returns non 0 exit code
+##  $1 -> Name of config script line to find
+command_runscript_file() {
+    declare -a ALLOWED_SCRIPTS=( PRE_SCRIPT_FILE SUCCESS_SCRIPT_FILE FAILED_SCRIPT_FILE FINAL_SCRIPT_FILE )
+    if array_contains ALLOWED_SCRIPTS "$1" && [[ -n ${CONFIG[$1]} ]]; then
+        log_entry "| Running $1: ${CONFIG[$1]}"
+        SCRIPT_OUT=$( "${CONFIG[$1]}" | tee "$LOG_FILE" 2>&1 )
+        SCRIPT_RET=$?
+        if [[ $SCRIPT_RET -ne 0 ]]; then
+            log_entry "| Script file returned exit code: $SCRIPT_RET"
+            # Send notify email about script failure
+            mailer "${CONFIG[NOTIFY_EMAIL]}" \
+                   "cfgbackup job '${CONF_NAME}' had $1 script file failure" \
+                   "The $1 ( ${CONFIG[$1]} ) for job '${CONF_NAME}' failed with exit code ${SCRIPT_RET}. See logs for details."
+            if [[ $1 == "PRE_SCRIPT_FILE" && ${CONFIG[PRE_SCRIPT_ERROR_EXIT]} -eq 1 ]]; then
+                log_entry "| PRE_SCRIPT_FILE failed and PRE_SCRIPT_ERROR_EXIT is set; exiting."
                 log_entry "| JOB ENDED: $( date +%Y-%m-%d\ %H:%M:%S )"
                 exit 1
             fi
@@ -1223,11 +1254,13 @@ runjob_sync() {
     RSYNC_EXIT=$?
     if [[ $RSYNC_EXIT -ne 0 ]]; then
         log_entry "| Rsync command exited with code: $RSYNC_EXIT"
-        command_runscript FAILED_SCRIPT
+        command_runscript_inline FAILED_SCRIPT
+        command_runscript_file FAILED_SCRIPT_FILE
         mailer_rsync_exit $RSYNC_EXIT
     else
         hardlink_identicals
-        command_runscript SUCCESS_SCRIPT
+        command_runscript_inline SUCCESS_SCRIPT
+        command_runscript_file SUCCESS_SCRIPT_FILE
     fi
 
     # If ALLOW_DELETIONS or ALLOW_OVERWRITES is 0, check for skipped files
@@ -1296,12 +1329,14 @@ runjob_rotation() {
     log_entry "| Rsync command exited with code: $RSYNC_EXIT"
     # On any error, send email report
     if ! config_rsync_exit_successful $RSYNC_EXIT; then
-        command_runscript FAILED_SCRIPT
+        command_runscript_inline FAILED_SCRIPT
+        command_runscript_file FAILED_SCRIPT_FILE
         mailer_rsync_exit $RSYNC_EXIT
         return
     else
         hardlink_identicals
-        command_runscript SUCCESS_SCRIPT
+        command_runscript_inline SUCCESS_SCRIPT
+        command_runscript_file SUCCESS_SCRIPT_FILE
     fi
 
     # If ALLOW_DELETIONS or ALLOW_OVERWRITES is 0, check for skipped files
@@ -1545,7 +1580,8 @@ runjob_mirror() {
     # Run post-rsync scripts
     if [[ $MIRROR_FAILURE -ne 0 ]]; then
         log_entry "| Mirror job failed due to previous errors"
-        command_runscript FAILED_SCRIPT
+        command_runscript_inline FAILED_SCRIPT
+        command_runscript_file FAILED_SCRIPT_FILE
         mailer_rsync_exit "$RSYNC_EXIT"
     else
         # Save mirror file state listings
@@ -1554,7 +1590,8 @@ runjob_mirror() {
         echo "$TGT_LIST_NEW" > "$TGT_LIST_FULL"
         touch -d "${NEW_STARTTIME}" "$TGT_LIST_FULL"
 
-        command_runscript SUCCESS_SCRIPT
+        command_runscript_inline SUCCESS_SCRIPT
+        command_runscript_file SUCCESS_SCRIPT_FILE
     fi
 
     # Update timestamp of target dir to indicate backup time
