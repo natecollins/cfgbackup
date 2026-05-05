@@ -23,7 +23,7 @@
 # SOFTWARE.
 ################################################################################
 
-VERSION=0.7.0
+VERSION=0.7.1
 
 #######################################
 # MISC HELPER FUNCTIONS
@@ -357,7 +357,7 @@ log_last_file() {
     # Get list of files
     # TODO make this better
     # shellcheck disable=SC2012,SC2207
-    LASTLOG=( $( ls -tr1 "$LM_PATH" 2> /dev/null | tail -n 1 ) )
+    LASTLOG=( $( ls -tr1 $LM_PATH 2> /dev/null | tail -n 1 ) )
     # Return last entry
     echo "${LASTLOG[0]}"
 }
@@ -564,7 +564,7 @@ rotate_get_dirs() {
     declare -a SORT_FLAGS
     if [[ ${CFG_BACKUP_TYPE} == "rotation" ]]; then
         MATCH_DATE=$( substr_index "${CFG_ROTATE_SUBDIR}" "DATE" )
-        SDIR_MATCH=${CFG_ROTATE_SUBDIR};
+        SDIR_MATCH=${CFG_ROTATE_SUBDIR}
         SORT_FLAGS+=("-V")
         if [[ $MATCH_DATE != "-1" ]]; then
             SDIR_MATCH=${SDIR_MATCH//DATE/[0-9]\\\{8\\\}}
@@ -648,7 +648,7 @@ rotate_start() {
         if [[ $OLDEST_DIR != "" ]]; then
             log_entry "Renaming: $OLDEST_DIR => ${CFG_RUNNING_DIRNAME}"
             PREV_DIR=$( epath_join "${CFG_TARGET_DIR}" "${OLDEST_DIR}" )
-            if ! mv "$PREV_DIR" "$RUN_DIR"; then
+            if [[ $ARG_DRYRUN -eq 0 ]] && ! mv "$PREV_DIR" "$RUN_DIR"; then
                 die "Could not rotate directory: ${OLDEST_DIR}"
             fi
             return 1
@@ -660,7 +660,7 @@ rotate_start() {
         log_entry "Found $ROT_COUNT backups out of a max of ${CFG_MAX_ROTATIONS}"
         log_entry "Creating new directory: ${CFG_RUNNING_DIRNAME}"
         # Create new directory for run
-        if ! mkdir "$RUN_DIR"; then
+        if [[ $ARG_DRYRUN -eq 0 ]] && ! mkdir "$RUN_DIR"; then
             die "Could not create new rotate directory: ${OLDEST_DIR}"
         fi
         return 0
@@ -716,7 +716,7 @@ rotate_reset_date() {
 
         log_entry "Renaming: ${CFG_RUNNING_DIRNAME} => $( basename "$CHECK_DIR" )"
         # Rename to complete dir
-        if ! mv "$RUN_DIR" "$CHECK_DIR"; then
+        if [[ $ARG_DRYRUN -eq 0 ]] && ! mv "$RUN_DIR" "$CHECK_DIR"; then
             die "Could not reset directory: ${RUN_DIR}"
         fi
     fi
@@ -734,7 +734,7 @@ rotate_reset_num() {
             die "Can't reset! Final rotation dir already exists: $RESET_DIR"
         fi
         log_entry "Renaming: ${CFG_RUNNING_DIRNAME} => $( basename "$RESET_DIR" )"
-        if ! mv "$RUN_DIR" "$RESET_DIR"; then
+        if [[ $ARG_DRYRUN -eq 0 ]] && ! mv "$RUN_DIR" "$RESET_DIR"; then
             die "Could not rename directory to: ${RESET_DIR}"
         fi
     fi
@@ -744,6 +744,7 @@ rotate_reset_num() {
 ## Rotate directories after backup completes and rename running directory
 rotate_complete() {
     if [[ ${CFG_BACKUP_TYPE} == "rotation" ]]; then
+        log_entry "Renaming: ${CFG_RUNNING_DIRNAME} => $( basename "$FIRST_DIR" )"
         MATCH_NUM0=$( substr_index "${CFG_ROTATE_SUBDIR}" "NUM0" )
         MATCH_DATE=$( substr_index "${CFG_ROTATE_SUBDIR}" "DATE" )
         if [[ $MATCH_DATE != "-1" ]]; then
@@ -790,10 +791,12 @@ rotate_complete_date() {
     fi
     log_entry "Renaming: ${CFG_RUNNING_DIRNAME} => $( basename "$COMPL_DIR" )"
     # Rename to complete dir
-    if ! mv "$RUN_DIR" "$COMPL_DIR"; then
-        die "Could not rename completed backup to: ${COMPL_DIR}"
+    if [[ $ARG_DRYRUN -eq 0 ]]; then
+        if ! mv "$RUN_DIR" "$COMPL_DIR"; then
+            die "Could not rename completed backup to: ${COMPL_DIR}"
+        fi
+        touch "$COMPL_DIR"
     fi
-    touch "$COMPL_DIR"
 }
 
 ###############################
@@ -847,10 +850,12 @@ rotate_complete_num() {
     FIRST_DIR=$( rotate_subdir_num "$FIRST_N" "$PAD" )
     log_entry "Renaming: ${CFG_RUNNING_DIRNAME} => $( basename "$FIRST_DIR" )"
 
-    if ! mv "$RUN_DIR" "$FIRST_DIR"; then
-        die "Could not rename directory from ${RUN_DIR} to ${FIRST_DIR}"
+    if [[ $ARG_DRYRUN -eq 0 ]]; then
+        if ! mv "$RUN_DIR" "$FIRST_DIR"; then
+            die "Could not rename directory from ${RUN_DIR} to ${FIRST_DIR}"
+        fi
+        touch "$FIRST_DIR"
     fi
-    touch "$FIRST_DIR"
 }
 
 #######################################
@@ -1120,7 +1125,8 @@ command_status() {
         LAST_BACKUP_DIR=$RUN_DIR
     fi
 
-    echo "======= cfgbackup job status ======="
+    echo -n "======= "; if [[ $ARG_DRYRUN -ne 0 ]]; then echo -n "(dry-run) "; fi
+    echo "cfgbackup job status ======="
     echo "Config:               $( basename "$ARG_CONFIG" )"
     echo "Type:                 ${CFG_BACKUP_TYPE}"
     echo "Status:               $CONFIG_STAT"
@@ -1132,10 +1138,9 @@ command_status() {
         fi
         echo "Last complete time:   $( date -r "$LAST_BACKUP_DIR" +%Y-%m-%d\ %H:%M:%S )"
     fi
-    echo ""
     LAST_LOGFILE=$( log_last_file )
     if [[ -n $LAST_LOGFILE ]]; then
-        echo "Log file:             ${LAST_LOGFILE}"
+        echo "Recent log file:      ${LAST_LOGFILE}"
         echo "Latest log messages:"
         tail -n 4 "$LAST_LOGFILE" | sed 's/^/  /'
     fi
@@ -1198,7 +1203,7 @@ command_runscripts() {
             fi
             SCRIPT_OUT=$( {
                 eval "${SCRIPT_ENTRY}"
-            } | tee "$LOG_FILE" 2>&1 )
+            } | tee -a "$LOG_FILE" 2>&1 )
             SCRIPT_RET=$?
             if [[ $SCRIPT_RET -ne 0 ]]; then
                 log_entry "Script returned exit code: $SCRIPT_RET"
@@ -1217,31 +1222,6 @@ command_runscripts() {
 }
 
 ###############################
-## Run given script file specified by the config, or do nothing if no script was set
-## Will send email notice if script returns non 0 exit code
-##  $1 -> Name of config script line to find
-command_runscript_file() {
-    declare -a ALLOWED_SCRIPTS=( PRE_SCRIPT_FILE SUCCESS_SCRIPT_FILE FAILED_SCRIPT_FILE FINAL_SCRIPT_FILE )
-    if array_contains ALLOWED_SCRIPTS "$1" && [[ -n ${CONFIG[$1]} ]]; then
-        log_entry "| Running $1: ${CONFIG[$1]}"
-        SCRIPT_OUT=$( "${CONFIG[$1]}" | tee "$LOG_FILE" 2>&1 )
-        SCRIPT_RET=$?
-        if [[ $SCRIPT_RET -ne 0 ]]; then
-            log_entry "| Script file returned exit code: $SCRIPT_RET"
-            # Send notify email about script failure
-            mailer "${CONFIG[NOTIFY_EMAIL]}" \
-                   "cfgbackup job '${CONF_NAME}' had $1 script file failure" \
-                   "The $1 ( ${CONFIG[$1]} ) for job '${CONF_NAME}' failed with exit code ${SCRIPT_RET}. See logs for details."
-            if [[ $1 == "PRE_SCRIPT_FILE" && ${CONFIG[PRE_SCRIPT_ERROR_EXIT]} -eq 1 ]]; then
-                log_entry "| PRE_SCRIPT_FILE failed and PRE_SCRIPT_ERROR_EXIT is set; exiting."
-                log_entry "| JOB ENDED: $( date +%Y-%m-%d\ %H:%M:%S )"
-                exit 1
-            fi
-        fi
-    fi
-}
-
-###############################
 ## Runs a 'hardlink' process to link identical files together in the
 ## running directory.
 ## Does nothing if IDENTICAL_HARD_LINKS is not set.
@@ -1254,7 +1234,7 @@ hardlink_identicals() {
         fi
         HARDLINK_COMMAND="${CFG_HARDLINK_PATH}${HARDLINK_CONTENT_FLAG} ${RUN_DIR}"
         log_entry "Running command: $HARDLINK_COMMAND"
-        if [[ $ARG_DRYRUN -eq 0 ]]; then
+        if [[ $ARG_DRYRUN -ne 0 ]]; then
             return
         fi
         if ! $HARDLINK_COMMAND >> "${LOG_FILE}" 2>&1; then
@@ -1329,7 +1309,7 @@ runjob_sync() {
     fi
 
     # Update timestamp of target dir to indicate backup time
-    if [[ $ARG_DRYRUN -ne 0 ]]; then
+    if [[ $ARG_DRYRUN -eq 0 ]]; then
         touch "$RUN_DIR"
     fi
 }
@@ -1337,11 +1317,10 @@ runjob_sync() {
 ###############################
 ## Run a rotate job
 runjob_rotation() {
-    #TODO ARG_DRYRUN WIP
     log_entry "Job type: rotation"
     rotate_start
     NEW_RUNDIR=$?
-    if [[ $ARG_DRYRUN -ne 0 ]]; then
+    if [[ $ARG_DRYRUN -eq 0 ]]; then
         echo $$ > "$PID_FULL"
     fi
 
@@ -1368,6 +1347,7 @@ runjob_rotation() {
             if ! rsync_gte_310; then
                 print_warning "Old version of rsync detected! cfgbackup will no longer support rsync prior to 3.1.0 in future releases."
                 log_entry "Old version of rsync detected, consider upgrading! Manually linking from previous rotation..."
+                if [[ $ARG_DRYRUN -eq 0 ]]; then
                 pushd "${PREV_BACKUP_PATH}" > /dev/null || \
                     die "Unable to switch directories while hardlinking."
                 # Create missing directories in RUN_DIR
@@ -1385,6 +1365,7 @@ runjob_rotation() {
                 \)
                 popd > /dev/null || \
                     die "Failure to return to directory while hardlinking."
+                fi
             fi
         fi
     fi
@@ -1412,7 +1393,7 @@ runjob_rotation() {
     fi
 
     # Update timestamp of target dir to indicate backup time
-    if [[ $ARG_DRYRUN -ne 0 ]]; then
+    if [[ $ARG_DRYRUN -eq 0 ]]; then
         touch "$RUN_DIR"
     fi
 
@@ -1422,9 +1403,6 @@ runjob_rotation() {
 ###############################
 ## Generate an email report of skipped files, and log them as well
 runjob_skipped_files() {
-    if [[ $ARG_DRYRUN -ne 0 ]]; then
-        return
-    fi
     RSYNC_FLAGS="-ai --dry-run --existing ${CFG_RSYNC_FLAGS} ${CFG_NOTIFY_RSYNC_FLAGS}"
     if [[ ${CFG_ALLOW_DELETIONS} -eq 0 ]]; then
         RSYNC_FLAGS="$RSYNC_FLAGS --del"
@@ -1440,6 +1418,10 @@ runjob_skipped_files() {
     RSYNC_COMMAND="${CFG_RSYNC_PATH} ${RSYNC_FLAGS} ${SYNC_FROM} ${RUN_DIR}/"
     log_entry "Checking for skipped files..."
     log_entry "Running rsync: $RSYNC_COMMAND"
+    if [[ $ARG_DRYRUN -ne 0 ]]; then
+        log_entry "Skipped files command ignored for dry-run."
+        return
+    fi
     SKIP_RESULTS=$( $RSYNC_COMMAND | tee -a "$LOG_FILE" 2>&1 )
     RSYNC_EXIT=${PIPESTATUS[0]}
     SKIP_COUNT=$( echo "$SKIP_RESULTS" | wc -l )
@@ -1474,8 +1456,7 @@ $SKIP_RESULTS
 ###############################
 ## Run a mirror job
 runjob_mirror() {
-    #TODO ARG_DRYRUN WIP
-    if [[ $ARG_DRYRUN -ne 0 ]]; then
+    if [[ $ARG_DRYRUN -eq 0 ]]; then
         echo $$ > "$PID_FULL"
     fi
     log_entry "Job type: mirror"
@@ -1549,10 +1530,13 @@ runjob_mirror() {
         CONFLICT_LOC1="${RUN_DIR}"
         CONFLICT_LOC2="${SYNC_FROM}"
         RSYNC_CONFLICT_FLAG=
+        if [[ $ARG_DRYRUN -ne 0 ]]; then
+            RSYNC_CONFLICT_FLAG="${RSYNC_CONFLICT_FLAG} -n"
+        fi
         if [[ ${CFG_MIRROR_CONFLICT_ACTION} == "delete" ]]; then
             CONFLICT_LOC1="${SYNC_FROM}"
             CONFLICT_LOC2="${RUN_DIR}"
-            RSYNC_CONFLICT_FLAG="--del"
+            RSYNC_CONFLICT_FLAG="${RSYNC_CONFLICT_FLAG} --del"
         fi
         if [[ -s $CONFLICT_SRC_REMOVED_FILE || -s $CONFLICT_TGT_REMOVED_FILE ]]; then
             log_entry "Conflict files found - resolving per config setting: ${CFG_MIRROR_CONFLICT_ACTION}"
@@ -1671,7 +1655,7 @@ runjob_mirror() {
     fi
 
     # Update timestamp of target dir to indicate backup time
-    if [[ $ARG_DRYRUN -ne 0 ]]; then
+    if [[ $ARG_DRYRUN -eq 0 ]]; then
         touch "$RUN_DIR"
     fi
 }
@@ -1705,6 +1689,9 @@ reset_killjob() {
     if status_is_running; then
         PID=$( cat "$PID_FULL" )
         echo "Killing $CONF_NAME backup job, pid ${PID}..."
+        if [[ $ARG_DRYRUN -ne 0 ]]; then
+            return
+        fi
         kill "$PID"
         sleep 4
         if status_is_running; then
@@ -1723,7 +1710,7 @@ reset_killjob() {
 ## Ends script with exit code 1 if pid file exists and could not be deleted
 reset_rmpidfile() {
     if [[ -f $PID_FULL ]]; then
-        if ! rm "$PID_FULL"; then
+        if [[ $ARG_DRYRUN -eq 0 ]] && ! rm "$PID_FULL"; then
             die "Could not remove pid file $PID_FULL"
         fi
     fi
@@ -1856,8 +1843,10 @@ command_signal() {
         fi
     fi
 
-    kill "-${SIGNAL}" "$PID_NUM"
-    sleep 1
+    if [[ $ARG_DRYRUN -eq 0 ]]; then
+        kill "-${SIGNAL}" "$PID_NUM"
+        sleep 1
+    fi
 
     command_status
     return 0
@@ -1930,7 +1919,6 @@ parse_args() {
             shift
             ;;
         -n|--dry-run)
-            ARG_ACTION=run
             ARG_DRYRUN=1
             ARG_VERBOSE=$(( ARG_VERBOSE ? ARG_VERBOSE : 1 ))
             shift
@@ -2009,8 +1997,8 @@ runhelp() {
     echo "    List rotational backup subdirectories for the given job."
     echo "  -r|--run"
     echo "    Run the backup according to the job provided."
-    echo "  -n|--dry-run  (experimental)"
-    echo "    Dry run the backup according to the job provided (only applies to run action)."
+    echo "  -n|--dry-run"
+    echo "    Dry run the backup according to the job provided."
     echo "  -R|--reset"
     echo "    Resets partially completed or failed backups."
     echo "    This will abort a currently running backup."
