@@ -2009,7 +2009,7 @@ runhelp() {
     echo "    List rotational backup subdirectories for the given job."
     echo "  -r|--run"
     echo "    Run the backup according to the job provided."
-    echo "  -n|--dry-run"
+    echo "  -n|--dry-run  (experimental)"
     echo "    Dry run the backup according to the job provided (only applies to run action)."
     echo "  -R|--reset"
     echo "    Resets partially completed or failed backups."
