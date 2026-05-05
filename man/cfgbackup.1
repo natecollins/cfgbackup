@@ -188,20 +188,20 @@ Script options, when specified, run at specific times of a backup job. If a scri
 an exit code other than 0, a failure notificaiton email will be sent.
 .IP
 .B PRE_SCRIPT
-runs immediately when the backup job starts, before any other run actions.
+runs immediately when the backup job starts, before any other run actions. Can be specified multiple times to run more than one script.
 .IP
 .B SUCCESS_SCRIPT
-runs after completion of rsync command (and hardlink process, if enabled), but only if rsync returns an exit code of 0.
+runs after completion of rsync command (and hardlink process, if enabled), but only if rsync returns an exit code of 0. Can be specified multiple times to run more than one script.
 .IP
 .B FAILED_SCRIPT
-runs after completion of rsync command, but only if rsync returns a non 0 exit code.
+runs after completion of rsync command, but only if rsync returns a non 0 exit code. Can be specified multiple times to run more than one script.
 .IP
 .B FINAL_SCRIPT
-runs as the last thing before the cfgbackup run job ends, regardless of success or failure of rsync.
+runs as the last thing before the cfgbackup run job ends, regardless of success or failure of rsync. Can be specified multiple times to run more than one script.
 
 .TP
 .B PRE_SCRIPT_ERROR_EXIT
-If set to 1, this will require the pre-script to have an exit code of 0, otherwise
+If set to 1, this will require the pre-script(s) have an exit code of 0, otherwise
 the backup job will send a failure notification then immediately exit.
 .IP
 Default: 0

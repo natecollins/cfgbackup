@@ -3,22 +3,21 @@
 # unit testing for function: rotate_get_dirs
 
 test_pre() {
-    declare -A -g CONFIG
-    CONFIG[BACKUP_TYPE]=rotation
-    CONFIG[ROTATE_SUBDIR]=backup-DATE
-    CONFIG[TARGET_DIR]=$( mktemp -d )
-    CONFIG[SORT_PATH]=sort
-    CONFIG[RUNNING_DIRNAME]=backup-running
-    CONFIG[MAX_ROTATIONS]=6
+    declare -g CFG_BACKUP_TYPE=rotation
+    declare -g CFG_ROTATE_SUBDIR=backup-DATE
+    declare -g CFG_TARGET_DIR=$( mktemp -d )
+    declare -g CFG_SORT_PATH=sort
+    declare -g CFG_RUNNING_DIRNAME=backup-running
+    declare -g CFG_MAX_ROTATIONS=6
 }
 
 test_run() {
     # Test 1
-    mkdir "${CONFIG[TARGET_DIR]}/backup-20200313"
-    mkdir "${CONFIG[TARGET_DIR]}/backup-20200313.1"
-    mkdir "${CONFIG[TARGET_DIR]}/backup-20200526"
-    mkdir "${CONFIG[TARGET_DIR]}/backup-20230228"
-    mkdir "${CONFIG[TARGET_DIR]}/backup-running"
+    mkdir "${CFG_TARGET_DIR}/backup-20200313"
+    mkdir "${CFG_TARGET_DIR}/backup-20200313.1"
+    mkdir "${CFG_TARGET_DIR}/backup-20200526"
+    mkdir "${CFG_TARGET_DIR}/backup-20230228"
+    mkdir "${CFG_TARGET_DIR}/backup-running"
 
     rotate_get_dirs
 
@@ -29,5 +28,5 @@ test_run() {
 }
 
 test_post() {
-    rm -r "${CONFIG[TARGET_DIR]}"
+    rm -r "${CFG_TARGET_DIR}"
 }

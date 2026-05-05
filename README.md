@@ -499,14 +499,15 @@ RSYNC_EXIT_CODE_SUCCESS=23,24
 
 <a name="script-options"></a>
 `PRE_SCRIPT`,`SUCCESS_SCRIPT`,`FAILED_SCRIPT`,`FINAL_SCRIPT`  
-All these script options allow for the setting
-of a script to run at a specific time during a backup job run. What you enter will be evaluated as a shell command,
+All these script options allow for the setting of script to run at a specific time
+during a backup job run. What you enter will be evaluated as a shell command,
 so placing multiple commands together and using pipes will also work.  
+Each script option is allowed to be define multiple times.  
  - `PRE_SCRIPT` This script will be run immediately when the backup job starts (but after config if checked/parsed), before any other run actions.
  - `SUCCESS_SCRIPT` Runs this script after the backup job has completed if rsync returns an exit code of 0; also waits until after hardlinks are created if `IDENTICALS_HARD_LINK` is set to 1.
  - `FAILED_SCRIPT` Runs this script immediate after rsync if rsync returns an exit code other than 0.
  - `FINAL_SCRIPT` This script runs as the last thing before the cfgbackup run job ends, regardless of success or failure of rsync.
-Any scripts specified will cause the backup job to send a failure email if they return a non 0 exit code.  
+Any scripts specified will cause the backup job to send a failure email if they return a non 0 exit code. If multiple scripts are specified for script type and they exit a non 0 code, each will run and send out its own failure email.  
 ```
 PRE_SCRIPT=/usr/local/bin/app-cache --clear
 SUCCESS_SCRIPT=service myapp restart; service apache2 restart
@@ -518,7 +519,9 @@ FINAL_SCRIPT=~adminguy/gen-server-report
 `PRE_SCRIPT_ERROR_EXIT` [Default value: `0`]  
 If set to 1, this will require the `PRE_SCRIPT` to have an exit code of 0,
 otherwise the backup job will send a failure notification and then immediately
-exit.  
+exit. With this enabled, if multiple `PRE_SCRIPT` options are specified, then
+the backup job will stop immediately upon the first script to exit with a
+non 0 code.  
 ```
 PRE_SCRIPT_ERROR_EXIT=1
 ```
