@@ -1217,6 +1217,31 @@ command_runscripts() {
 }
 
 ###############################
+## Run given script file specified by the config, or do nothing if no script was set
+## Will send email notice if script returns non 0 exit code
+##  $1 -> Name of config script line to find
+command_runscript_file() {
+    declare -a ALLOWED_SCRIPTS=( PRE_SCRIPT_FILE SUCCESS_SCRIPT_FILE FAILED_SCRIPT_FILE FINAL_SCRIPT_FILE )
+    if array_contains ALLOWED_SCRIPTS "$1" && [[ -n ${CONFIG[$1]} ]]; then
+        log_entry "| Running $1: ${CONFIG[$1]}"
+        SCRIPT_OUT=$( "${CONFIG[$1]}" | tee "$LOG_FILE" 2>&1 )
+        SCRIPT_RET=$?
+        if [[ $SCRIPT_RET -ne 0 ]]; then
+            log_entry "| Script file returned exit code: $SCRIPT_RET"
+            # Send notify email about script failure
+            mailer "${CONFIG[NOTIFY_EMAIL]}" \
+                   "cfgbackup job '${CONF_NAME}' had $1 script file failure" \
+                   "The $1 ( ${CONFIG[$1]} ) for job '${CONF_NAME}' failed with exit code ${SCRIPT_RET}. See logs for details."
+            if [[ $1 == "PRE_SCRIPT_FILE" && ${CONFIG[PRE_SCRIPT_ERROR_EXIT]} -eq 1 ]]; then
+                log_entry "| PRE_SCRIPT_FILE failed and PRE_SCRIPT_ERROR_EXIT is set; exiting."
+                log_entry "| JOB ENDED: $( date +%Y-%m-%d\ %H:%M:%S )"
+                exit 1
+            fi
+        fi
+    fi
+}
+
+###############################
 ## Runs a 'hardlink' process to link identical files together in the
 ## running directory.
 ## Does nothing if IDENTICAL_HARD_LINKS is not set.

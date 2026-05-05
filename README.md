@@ -277,7 +277,7 @@ Config Options
 - [`RSYNC_FLAGS`](#rsync-flags)
 - [`NOTIFY_RSYNC_FLAGS`](#notify-rsync-flags)
 - [`RSYNC_EXIT_CODE_SUCCESS`](#rsync-exit-code-success)
-- [`PRE_SCRIPT`,`SUCCESS_SCRIPT`,`FAILED_SCRIPT`,`FINAL_SCRIPT`](#script-options)
+- [`PRE_SCRIPT`,`PRE_SCRIPT_FILE`,`SUCCESS_SCRIPT`,`FAILED_SCRIPT`,`FINAL_SCRIPT`](#script-options)
 - [`PRE_SCRIPT_ERROR_EXIT`](#pre-script-error-exit)
 - [`RUNNING_DIRNAME`](#running-dirname)
 - [`PID_FILE`](#pid-file)
