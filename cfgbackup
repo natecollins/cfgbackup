@@ -23,7 +23,7 @@
 # SOFTWARE.
 ################################################################################
 
-VERSION=0.7.1
+VERSION=0.7.2
 
 #######################################
 # MISC HELPER FUNCTIONS
@@ -1190,6 +1190,7 @@ command_end() {
 ## Will send email notice if any script returns non 0 exit code
 ##  $1 -> Name of config script lines to find
 command_runscripts() {
+    set -o pipefail
     ALLOWED_SCRIPTS=( PRE_SCRIPT SUCCESS_SCRIPT FAILED_SCRIPT FINAL_SCRIPT )
     declare -n SCRIPT_ARR="CFG_$1"
     if array_contains ALLOWED_SCRIPTS "$1"; then
@@ -1219,6 +1220,7 @@ command_runscripts() {
             fi
         done
     fi
+    set +o pipefail
 }
 
 ###############################
