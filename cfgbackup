@@ -1211,7 +1211,7 @@ command_runscripts() {
                 # Send notify email about script failure
                 mailer "${CFG_NOTIFY_EMAIL}" \
                        "cfgbackup job '${CONF_NAME}' had $1 script failure" \
-                       "The $1 ( ${SCRIPT_NAME} ) for job '${CONF_NAME}' failed with exit code ${SCRIPT_RET}. See logs for details."
+                       "The $1 for job '${CONF_NAME}' failed with exit code ${SCRIPT_RET}. See logs for details. Script was:\n\n${SCRIPT_ENTRY}\n"
                 if [[ $1 == "PRE_SCRIPT" && ${CFG_PRE_SCRIPT_ERROR_EXIT} -eq 1 ]]; then
                     log_entry "PRE_SCRIPT failed and PRE_SCRIPT_ERROR_EXIT is set; exiting."
                     log_entry "JOB ENDED: $( date +%Y-%m-%d\ %H:%M:%S )"
